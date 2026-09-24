@@ -3,5 +3,15 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "scripts": { "test": "node --test" }
+  "scripts": {
+    "build": "esbuild app.js --bundle --format=esm --minify --outfile=app.bundle.js",
+    "test": "node --test",
+    "check": "npm test && npm run build"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.117.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
 }

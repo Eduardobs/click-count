@@ -11,41 +11,61 @@ GitHub Pages only hosts static files. For all visitors to see and change the
 same number, an external service is required. In this project:
 
 - the database increments the value atomically, preventing lost clicks;
-- the browser can only read the counter and call the `+1` operation;
+- the browser can read the counter and call a public Edge Function;
+- only the Edge Function can execute the privileged database increment;
 - updates reach every tab through Realtime;
 - the value is stored as text and incremented digit by digit, without the
   64-bit precision limit of JavaScript's `Number`.
 
 ## Configuration
 
-1. Create a free project at [supabase.com](https://supabase.com).
-2. In the dashboard, open **SQL Editor**, paste the contents of
-   `supabase/setup.sql`, and run it once.
-3. Under **Project Settings → API**, copy the project URL and public key
-   (`anon` / `publishable`).
-4. Set both values in `config.js`:
+The original database setup has already been applied to this project and is no
+longer stored in the repository. Apply the security migration and deploy the
+public Edge Function with:
 
-   ```js
-   export const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
-   export const SUPABASE_ANON_KEY = "YOUR-PUBLIC-KEY";
-   ```
+```bash
+npx supabase login
+npx supabase link --project-ref kmbtkszxonrkozgotqrf
+npx supabase db push
+npx supabase functions deploy increment-counter
+```
 
-The key used by the browser is public by definition. Security does not depend
-on hiding it: the SQL enables RLS, blocks direct writes to the table, and only
-exposes the function that adds exactly one to the counter.
+The hosted Edge Function receives server credentials from Supabase itself. Do
+not put a secret or `service_role` key in this repository.
+
+For a different project, set its URL and publishable key in `config.js`:
+
+```js
+export const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
+export const SUPABASE_PUBLISHABLE_KEY = "YOUR-PUBLIC-KEY";
+```
+
+Also update the Supabase origin in `index.html` and `_headers`. If the site uses
+a different public origin, set the Edge Function secret `ALLOWED_ORIGINS` to a
+comma-separated list of allowed origins.
+
+The browser key is public by definition. Security depends on RLS and database
+permissions, not on hiding this key.
 
 ## Run locally
 
-ES modules must be served over HTTP. Use any static server, for example:
+Install the locked dependencies and build the self-hosted browser bundle:
+
+```bash
+npm ci
+npm run build
+```
+
+The files must be served over HTTP. Use any static server, for example:
 
 ```bash
 python3 -m http.server 8080
 ```
 
-Open `http://localhost:8080`. To run the display utility tests:
+Open `http://localhost:8080`. To run all local checks:
 
 ```bash
-npm test
+npm run check
 ```
 
 ## Publish on GitHub Pages
@@ -53,15 +73,22 @@ npm test
 In the repository's **Settings → Pages**:
 
 1. choose **Deploy from a branch**;
-2. select the `main` branch and the `/ (root)` folder;
+2. select the `master` branch and the `/ (root)` folder;
 3. save and wait for the published address.
 
-There is no build step. `index.html`, CSS, and JavaScript are published
-directly.
+Commit the generated `app.bundle.js` before publishing. GitHub Pages serves
+`index.html`, CSS, and the bundle directly from the branch.
+
+The `_headers` file provides CSP, anti-framing, MIME-sniffing, referrer, and
+permissions policies on hosts that support this convention, such as Cloudflare
+Pages. GitHub Pages ignores custom response headers, so the application also
+contains a JavaScript anti-framing fallback. For header-level clickjacking
+protection, publish through a host or proxy that applies `_headers`.
 
 ## Security note
 
-The increment is protected against direct value changes, but the counter is
-public: anyone can click or automate calls to the operation. For a campaign at
-risk of abuse, enable rate limiting/CAPTCHA in an Edge Function and have the
-front end call that function instead of the public RPC.
+Direct table writes and direct browser execution of the privileged RPC are
+blocked. The Edge Function remains intentionally public and unrestricted: no
+account, per-IP limit, or CAPTCHA is required. Consequently, anyone can still
+automate increments and consume project quota. This is an explicit product
+tradeoff rather than an authentication boundary.

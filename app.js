@@ -1,6 +1,15 @@
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/+esm";
-import { SUPABASE_ANON_KEY, SUPABASE_URL } from "./config.js";
+import { createClient } from "@supabase/supabase-js";
+import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "./config.js";
 import { counterSize, formatCounter, normalizeCounter } from "./counter-utils.js";
+
+// GitHub Pages cannot emit anti-framing response headers. The button starts disabled,
+// so hiding the document before connecting is a safe fallback against clickjacking.
+if (window.top !== window.self) {
+  document.documentElement.hidden = true;
+  throw new Error("This page cannot be embedded in a frame.");
+}
+
+const DEFAULT_RETRY_DELAY_MS = 2500;
 
 const elements = {
   button: document.querySelector("#clickButton"),
@@ -42,15 +51,38 @@ function showError(message) {
 
 const configured =
   /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(SUPABASE_URL) &&
-  SUPABASE_ANON_KEY.length > 20;
+  SUPABASE_PUBLISHABLE_KEY.startsWith("sb_publishable_");
 
 if (!configured) {
   showError("Configure Supabase in config.js to publish the counter.");
 } else {
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
     realtime: { params: { eventsPerSecond: 10 } },
   });
+
+  async function incrementCounter() {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/increment-counter`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+        "Content-Type": "application/json",
+      },
+      body: "{}",
+    });
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      const error = new Error(payload?.error || `Increment failed (${response.status}).`);
+      const retryAfter = Number(response.headers.get("Retry-After"));
+      if (response.status === 429 && Number.isFinite(retryAfter)) {
+        error.retryAfterMs = Math.max(1, retryAfter) * 1000;
+      }
+      throw error;
+    }
+
+    return payload;
+  }
 
   async function loadCounter() {
     const { data, error } = await supabase
@@ -69,9 +101,7 @@ if (!configured) {
 
     try {
       while (state.queued > 0 && state.connected) {
-        const { data, error } = await supabase.rpc("increment_counter", { counter_id: "main" });
-        if (error) throw error;
-        const result = Array.isArray(data) ? data[0] : data;
+        const result = await incrementCounter();
         renderCounter(result.new_value);
         state.queued -= 1;
         renderPending();
@@ -80,7 +110,10 @@ if (!configured) {
     } catch (error) {
       console.error("Could not register click:", error);
       elements.message.textContent = "Your click is queued. Trying again…";
-      state.retryTimer = window.setTimeout(processQueue, 2500);
+      state.retryTimer = window.setTimeout(
+        processQueue,
+        error.retryAfterMs || DEFAULT_RETRY_DELAY_MS,
+      );
     } finally {
       state.processing = false;
     }

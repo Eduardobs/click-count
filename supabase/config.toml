@@ -1,0 +1,2 @@
+[functions.increment-counter]
+verify_jwt = false
