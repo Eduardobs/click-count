@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f4f1e8" />
+    <meta name="description" content="Um contador público, compartilhado e atualizado em tempo real." />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; connect-src https://*.supabase.co wss://*.supabase.co; style-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests" />
+    <title>Mais Um — contador coletivo</title>
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="masthead">
+        <a class="brand" href="./" aria-label="Mais Um — página inicial">
+          <span class="brand-mark" aria-hidden="true">+</span>
+          <span>mais um</span>
+        </a>
+        <div class="live-pill" id="livePill" data-state="loading">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span id="liveLabel">conectando</span>
+        </div>
+      </header>
+
+      <section class="counter-card" aria-labelledby="pageTitle">
+        <div class="intro">
+          <p class="eyebrow">contador coletivo</p>
+          <h1 id="pageTitle">Quantos cliques<br />cabem na internet?</h1>
+          <p class="description">Todo mundo vê o mesmo número. Cada toque deixa a sua marca.</p>
+        </div>
+
+        <div class="counter-area">
+          <p class="counter-label">cliques até agora</p>
+          <output class="counter-value" id="counterValue" aria-live="polite" aria-atomic="true">—</output>
+          <p class="pending" id="pendingLabel" aria-live="polite"></p>
+        </div>
+
+        <button class="click-button" id="clickButton" type="button" disabled>
+          <span class="button-plus" aria-hidden="true">+1</span>
+          <span class="button-copy">contar meu clique</span>
+        </button>
+
+        <p class="message" id="message" role="status">Buscando o contador compartilhado…</p>
+      </section>
+
+      <footer>
+        <p>Um clique por vez. Sem placar, sem cadastro.</p>
+        <span aria-hidden="true">↗</span>
+      </footer>
+    </main>
+
+    <noscript>Ative o JavaScript para participar do contador.</noscript>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
