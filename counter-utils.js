@@ -1,8 +1,8 @@
-/** Mantém o contador como texto para não perder precisão em números enormes. */
+/** Keep the counter as text to preserve precision for very large numbers. */
 export function normalizeCounter(value) {
   const text = String(value ?? "");
   if (!/^(0|[1-9]\d*)$/.test(text)) {
-    throw new TypeError("Valor de contador inválido.");
+    throw new TypeError("Invalid counter value.");
   }
   return text;
 }

@@ -26,18 +26,18 @@ function renderCounter(rawValue) {
   elements.counter.value = formatted;
   elements.counter.textContent = formatted;
   elements.counter.dataset.size = counterSize(value);
-  elements.counter.setAttribute("aria-label", `${value} cliques`);
+  elements.counter.setAttribute("aria-label", `${value} clicks`);
 }
 
 function renderPending() {
   elements.pending.textContent = state.queued === 0
     ? ""
-    : `${state.queued} ${state.queued === 1 ? "clique aguardando" : "cliques aguardando"}`;
+    : `${state.queued} ${state.queued === 1 ? "click queued" : "clicks queued"}`;
 }
 
 function showError(message) {
   elements.message.textContent = message;
-  setConnection("error", "sem conexão");
+  setConnection("error", "no connection");
 }
 
 const configured =
@@ -45,7 +45,7 @@ const configured =
   SUPABASE_ANON_KEY.length > 20;
 
 if (!configured) {
-  showError("Configure o Supabase em config.js para publicar o contador.");
+  showError("Configure Supabase in config.js to publish the counter.");
 } else {
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -78,8 +78,8 @@ if (!configured) {
       }
       elements.message.textContent = "";
     } catch (error) {
-      console.error("Não foi possível registrar o clique:", error);
-      elements.message.textContent = "Seu clique está na fila. Tentando novamente…";
+      console.error("Could not register click:", error);
+      elements.message.textContent = "Your click is queued. Trying again…";
       state.retryTimer = window.setTimeout(processQueue, 2500);
     } finally {
       state.processing = false;
@@ -102,32 +102,32 @@ if (!configured) {
     }, (payload) => renderCounter(payload.new.value))
     .subscribe((status) => {
       if (status === "SUBSCRIBED") {
-        setConnection("online", "ao vivo");
+        setConnection("online", "live");
         elements.message.textContent = "";
         processQueue();
       } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-        setConnection("offline", "reconectando");
-        elements.message.textContent = "Reconectando ao contador…";
+        setConnection("offline", "reconnecting");
+        elements.message.textContent = "Reconnecting to the counter…";
       } else if (status === "CLOSED") {
         setConnection("offline", "offline");
       }
     });
 
   window.addEventListener("online", () => {
-    elements.message.textContent = "Conexão restaurada. Sincronizando…";
+    elements.message.textContent = "Connection restored. Syncing…";
     loadCounter().then(processQueue).catch(() => {
-      elements.message.textContent = "Ainda não foi possível sincronizar.";
+      elements.message.textContent = "Still unable to sync.";
     });
   });
 
   window.addEventListener("offline", () => {
     setConnection("offline", "offline");
-    elements.message.textContent = "Sem internet. Seus cliques ficarão na fila desta aba.";
+    elements.message.textContent = "No internet. Your clicks will stay queued in this tab.";
   });
 
   loadCounter().catch((error) => {
-    console.error("Não foi possível carregar o contador:", error);
-    showError("Não foi possível acessar o contador. Confira a configuração.");
+    console.error("Could not load the counter:", error);
+    showError("Could not access the counter. Check the configuration.");
     supabase.removeChannel(channel);
   });
 }

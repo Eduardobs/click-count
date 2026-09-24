@@ -1,67 +1,67 @@
-# Mais Um
+# One More
 
-Aplicativo que contabiliza cliques.
+An application that counts clicks.
 
-Contador coletivo, responsivo e atualizado em tempo real. O front-end é estático
-e pode ser servido pelo GitHub Pages; o estado compartilhado fica no Supabase.
+A shared, responsive counter updated in real time. The front end is static and
+can be served by GitHub Pages; shared state is stored in Supabase.
 
-## Por que existe um serviço de dados?
+## Why is a data service needed?
 
-O GitHub Pages só hospeda arquivos estáticos. Para todos os visitantes enxergarem
-e alterarem o mesmo número, é necessário um serviço externo. Neste projeto:
+GitHub Pages only hosts static files. For all visitors to see and change the
+same number, an external service is required. In this project:
 
-- o banco incrementa o valor atomicamente, evitando cliques perdidos;
-- o navegador apenas pode ler o contador e chamar a operação `+1`;
-- atualizações chegam a todas as abas por Realtime;
-- o valor é armazenado como texto e incrementado dígito a dígito, sem o limite de
-  precisão de 64 bits ou do `Number` do JavaScript.
+- the database increments the value atomically, preventing lost clicks;
+- the browser can only read the counter and call the `+1` operation;
+- updates reach every tab through Realtime;
+- the value is stored as text and incremented digit by digit, without the
+  64-bit precision limit of JavaScript's `Number`.
 
-## Configuração
+## Configuration
 
-1. Crie um projeto gratuito em [supabase.com](https://supabase.com).
-2. No painel, abra **SQL Editor**, cole o conteúdo de `supabase/setup.sql` e
-   execute-o uma vez.
-3. Em **Project Settings → API**, copie a URL do projeto e a chave pública
+1. Create a free project at [supabase.com](https://supabase.com).
+2. In the dashboard, open **SQL Editor**, paste the contents of
+   `supabase/setup.sql`, and run it once.
+3. Under **Project Settings → API**, copy the project URL and public key
    (`anon` / `publishable`).
-4. Preencha os dois valores em `config.js`:
+4. Set both values in `config.js`:
 
    ```js
-   export const SUPABASE_URL = "https://SEU-PROJETO.supabase.co";
-   export const SUPABASE_ANON_KEY = "SUA-CHAVE-PUBLICA";
+   export const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
+   export const SUPABASE_ANON_KEY = "YOUR-PUBLIC-KEY";
    ```
 
-A chave usada pelo navegador é pública por definição. A segurança não depende de
-escondê-la: o SQL ativa RLS, bloqueia escrita direta na tabela e expõe somente a
-função que acrescenta exatamente um ao contador.
+The key used by the browser is public by definition. Security does not depend
+on hiding it: the SQL enables RLS, blocks direct writes to the table, and only
+exposes the function that adds exactly one to the counter.
 
-## Rodar localmente
+## Run locally
 
-Módulos ES precisam ser servidos por HTTP. Use qualquer servidor estático, por
-exemplo:
+ES modules must be served over HTTP. Use any static server, for example:
 
 ```bash
 python3 -m http.server 8080
 ```
 
-Abra `http://localhost:8080`. Para executar os testes das funções de exibição:
+Open `http://localhost:8080`. To run the display utility tests:
 
 ```bash
 npm test
 ```
 
-## Publicar no GitHub Pages
+## Publish on GitHub Pages
 
-Em **Settings → Pages** do repositório:
+In the repository's **Settings → Pages**:
 
-1. escolha **Deploy from a branch**;
-2. selecione a branch `main` e a pasta `/ (root)`;
-3. salve e aguarde o endereço publicado.
+1. choose **Deploy from a branch**;
+2. select the `main` branch and the `/ (root)` folder;
+3. save and wait for the published address.
 
-Não há etapa de build. `index.html`, CSS e JavaScript são publicados diretamente.
+There is no build step. `index.html`, CSS, and JavaScript are published
+directly.
 
-## Observação de segurança
+## Security note
 
-O incremento é seguro contra alteração direta do valor, mas o contador é público:
-qualquer pessoa pode clicar ou automatizar chamadas à operação. Para uma campanha
-com risco de abuso, ative rate limiting/CAPTCHA em uma Edge Function e faça o
-front-end chamar essa função em vez do RPC público.
+The increment is protected against direct value changes, but the counter is
+public: anyone can click or automate calls to the operation. For a campaign at
+risk of abuse, enable rate limiting/CAPTCHA in an Edge Function and have the
+front end call that function instead of the public RPC.

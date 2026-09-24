@@ -1,29 +1,29 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#f4f1e8" />
-    <meta name="description" content="Um contador público, compartilhado e atualizado em tempo real." />
+    <meta name="description" content="A public counter shared and updated in real time." />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; connect-src https://*.supabase.co wss://*.supabase.co; style-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests" />
-    <title>Mais Um — contador coletivo</title>
+    <title>One More — shared counter</title>
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="page-shell">
       <header class="masthead">
-        <a class="brand" href="./" aria-label="Mais Um — página inicial">
+        <a class="brand" href="./" aria-label="One More — home page">
           <span class="brand-mark" aria-hidden="true">+</span>
-          <span>mais um</span>
+          <span>one more</span>
         </a>
         <div class="live-pill" id="livePill" data-state="loading">
           <span class="live-dot" aria-hidden="true"></span>
-          <span id="liveLabel">conectando</span>
+          <span id="liveLabel">connecting</span>
         </div>
       </header>
 
-      <section class="counter-card" aria-label="Contador coletivo">
+      <section class="counter-card" aria-label="Shared counter">
         <div class="counter-area">
           <output class="counter-value" id="counterValue" aria-live="polite" aria-atomic="true">—</output>
           <p class="pending" id="pendingLabel" aria-live="polite"></p>
@@ -31,14 +31,14 @@
 
         <button class="click-button" id="clickButton" type="button" disabled>
           <span class="button-plus" aria-hidden="true">+1</span>
-          <span class="button-copy">contar meu clique</span>
+          <span class="button-copy">count my click</span>
         </button>
 
         <p class="message" id="message" role="status"></p>
       </section>
     </main>
 
-    <noscript>Ative o JavaScript para participar do contador.</noscript>
+    <noscript>Enable JavaScript to take part in the counter.</noscript>
     <script type="module" src="./app.js"></script>
   </body>
 </html>
