@@ -1,6 +1,16 @@
 /** Keep the counter as text to preserve precision for very large numbers. */
 export function normalizeCounter(value) {
-  const text = String(value ?? "");
+  let text;
+  if (typeof value === "string") {
+    text = value;
+  } else if (typeof value === "bigint" && value >= 0n) {
+    text = value.toString();
+  } else if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) {
+    text = String(value);
+  } else {
+    throw new TypeError("Invalid counter value.");
+  }
+
   if (!/^(0|[1-9]\d*)$/.test(text)) {
     throw new TypeError("Invalid counter value.");
   }
