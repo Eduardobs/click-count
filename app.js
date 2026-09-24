@@ -76,7 +76,7 @@ if (!configured) {
         state.queued -= 1;
         renderPending();
       }
-      elements.message.textContent = "Atualizado para todo mundo, em tempo real.";
+      elements.message.textContent = "";
     } catch (error) {
       console.error("Não foi possível registrar o clique:", error);
       elements.message.textContent = "Seu clique está na fila. Tentando novamente…";
@@ -103,7 +103,7 @@ if (!configured) {
     .subscribe((status) => {
       if (status === "SUBSCRIBED") {
         setConnection("online", "ao vivo");
-        elements.message.textContent = "Pronto. Agora é com você.";
+        elements.message.textContent = "";
         processQueue();
       } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
         setConnection("offline", "reconectando");
