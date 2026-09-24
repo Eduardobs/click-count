@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "build": "esbuild app.js --bundle --format=esm --minify --outfile=app.bundle.js",
+    "dev": "esbuild app.js --bundle --format=esm --servedir=. --outfile=app.bundle.js --serve=localhost:8080",
     "test": "node --test",
     "check": "npm test && npm run build"
   },
   "dependencies": {
-    "@supabase/supabase-js": "2.117.1"
+    "@supabase/realtime-js": "2.117.1"
   },
   "devDependencies": {
     "esbuild": "0.28.2"

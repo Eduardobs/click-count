@@ -1,94 +1,47 @@
 # One More
 
-An application that counts clicks.
+One More is a simple shared counter. Every click adds one to the total, and
+the updated number appears for everyone using the app.
 
-A shared, responsive counter updated in real time. The front end is static and
-can be served by GitHub Pages; shared state is stored in Supabase.
+## What is it for?
 
-## Why is a data service needed?
+The project is a small experiment in participation: people can visit the page,
+click the button, and help make one shared number grow. It works on phones,
+tablets, and computers.
 
-GitHub Pages only hosts static files. For all visitors to see and change the
-same number, an external service is required. In this project:
+## How it works
 
-- the database increments the value atomically, preventing lost clicks;
-- the browser can read the counter and call a public Edge Function;
-- only the Edge Function can execute the privileged database increment;
-- updates reach every tab through Realtime;
-- the value is stored as text and incremented digit by digit, without the
-  64-bit precision limit of JavaScript's `Number`.
+- Open the page and click the button.
+- The total increases immediately.
+- Everyone viewing the page sees the same total.
+- The counter keeps working even when many people are using it at once.
 
-## Configuration
+## Run it on your computer
 
-The original database setup has already been applied to this project and is no
-longer stored in the repository. Apply the security migration and deploy the
-public Edge Function with:
+If you want to try the project locally:
 
-```bash
-npx supabase login
-npx supabase link --project-ref kmbtkszxonrkozgotqrf
-npx supabase db push
-npx supabase functions deploy increment-counter
-```
+1. Install the project's dependencies with `npm ci`.
+2. Start the development server with `npm run dev`.
+3. Open `http://localhost:8080` in your browser.
 
-The hosted Edge Function receives server credentials from Supabase itself. Do
-not put a secret or `service_role` key in this repository.
+The development server rebuilds the application bundle when source files change.
 
-For a different project, set its URL and publishable key in `config.js`:
+To run the project's checks, use `npm run check`.
 
-```js
-export const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
-export const SUPABASE_PUBLISHABLE_KEY = "YOUR-PUBLIC-KEY";
-```
+## Publish the app
 
-Also update the Supabase origin in `index.html` and `_headers`. If the site uses
-a different public origin, set the Edge Function secret `ALLOWED_ORIGINS` to a
-comma-separated list of allowed origins.
+The app can be published with GitHub Pages:
 
-The browser key is public by definition. Security depends on RLS and database
-permissions, not on hiding this key.
+1. Open the repository's **Settings → Pages**.
+2. Choose **Deploy from a branch**.
+3. Select the `master` branch and the `/ (root)` folder.
+4. Save the settings and wait for the public page to become available.
 
-## Run locally
+Before publishing, make sure the generated `app.bundle.js` file has been
+created and committed.
 
-Install the locked dependencies and build the self-hosted browser bundle:
+## Notes
 
-```bash
-npm ci
-npm run build
-```
-
-The files must be served over HTTP. Use any static server, for example:
-
-```bash
-python3 -m http.server 8080
-```
-
-Open `http://localhost:8080`. To run all local checks:
-
-```bash
-npm run check
-```
-
-## Publish on GitHub Pages
-
-In the repository's **Settings → Pages**:
-
-1. choose **Deploy from a branch**;
-2. select the `master` branch and the `/ (root)` folder;
-3. save and wait for the published address.
-
-Commit the generated `app.bundle.js` before publishing. GitHub Pages serves
-`index.html`, CSS, and the bundle directly from the branch.
-
-The `_headers` file provides CSP, anti-framing, MIME-sniffing, referrer, and
-permissions policies on hosts that support this convention, such as Cloudflare
-Pages. GitHub Pages ignores custom response headers, so the application also
-contains a JavaScript anti-framing fallback. For header-level clickjacking
-protection, publish through a host or proxy that applies `_headers`.
-
-## Security note
-
-Direct table writes and direct browser execution of the privileged RPC are
-blocked. The Edge Function remains intentionally public and unrestricted: no
-account, per-IP limit, or CAPTCHA is required. Consequently, anyone can still
-automate increments and consume project quota. This is an explicit product
-tradeoff rather than an authentication boundary.
+The shared total is stored online so that all visitors can see and update the
+same number. The app does not require accounts or sign-in, which keeps it easy
+to use. This also means that anyone can add clicks automatically or repeatedly.

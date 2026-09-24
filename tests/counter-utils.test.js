@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { counterSize, formatCounter, normalizeCounter } from "../counter-utils.js";
+import {
+  compareCounters,
+  counterSize,
+  formatCounter,
+  normalizeCounter,
+} from "../counter-utils.js";
 
 test("formats digit groups without using Number", () => {
   assert.equal(formatCounter("123456789012345678901"), "123.456.789.012.345.678.901");
@@ -21,4 +26,10 @@ test("selects display sizes by digit count", () => {
   assert.equal(counterSize("123"), "normal");
   assert.equal(counterSize("12345678901"), "long");
   assert.equal(counterSize("1234567890123456789012345"), "very-long");
+});
+
+test("compares counters without losing precision", () => {
+  assert.equal(compareCounters("9007199254740993", "9007199254740992"), 1);
+  assert.equal(compareCounters("999", "1000"), -1);
+  assert.equal(compareCounters("42", "42"), 0);
 });

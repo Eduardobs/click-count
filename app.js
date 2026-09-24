@@ -1,6 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
+import { RealtimeClient } from "@supabase/realtime-js";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "./config.js";
-import { counterSize, formatCounter, normalizeCounter } from "./counter-utils.js";
+import { compareCounters, normalizeCounter } from "./counter-utils.js";
 
 // GitHub Pages cannot emit anti-framing response headers. The button starts disabled,
 // so hiding the document before connecting is a safe fallback against clickjacking.
@@ -10,6 +10,7 @@ if (window.top !== window.self) {
 }
 
 const DEFAULT_RETRY_DELAY_MS = 2500;
+const MAX_CONCURRENT_REQUESTS = 3;
 
 const elements = {
   button: document.querySelector("#clickButton"),
@@ -20,7 +21,14 @@ const elements = {
   pending: document.querySelector("#pendingLabel"),
 };
 
-const state = { queued: 0, processing: false, connected: false, retryTimer: null };
+const state = {
+  queued: 0,
+  inFlight: 0,
+  connected: false,
+  retryTimer: null,
+  pressTimer: null,
+  renderedValue: null,
+};
 
 function setConnection(status, label) {
   state.connected = status === "online";
@@ -31,11 +39,20 @@ function setConnection(status, label) {
 
 function renderCounter(rawValue) {
   const value = normalizeCounter(rawValue);
-  const formatted = formatCounter(value);
+  // Initial reads, mutation responses, and Realtime updates race each other.
+  // Never let an older response visually roll the counter back.
+  if (state.renderedValue !== null && compareCounters(value, state.renderedValue) <= 0) {
+    return;
+  }
+
+  const formatted = value.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   elements.counter.value = formatted;
   elements.counter.textContent = formatted;
-  elements.counter.dataset.size = counterSize(value);
+  elements.counter.dataset.size = value.length > 24
+    ? "very-long"
+    : value.length > 10 ? "long" : "normal";
   elements.counter.setAttribute("aria-label", `${value} clicks`);
+  state.renderedValue = value;
 }
 
 function renderPending() {
@@ -56,9 +73,13 @@ const configured =
 if (!configured) {
   showError("Configure Supabase in config.js to publish the counter.");
 } else {
-  const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    realtime: { params: { eventsPerSecond: 10 } },
+  const realtimeUrl = `${SUPABASE_URL.replace("https://", "wss://")}/realtime/v1`;
+  const realtime = new RealtimeClient(realtimeUrl, {
+    accessToken: async () => SUPABASE_PUBLISHABLE_KEY,
+    params: {
+      apikey: SUPABASE_PUBLISHABLE_KEY,
+      eventsPerSecond: 10,
+    },
   });
 
   async function incrementCounter() {
@@ -85,37 +106,50 @@ if (!configured) {
   }
 
   async function loadCounter() {
-    const { data, error } = await supabase
-      .from("counters")
-      .select("value")
-      .eq("id", "main")
-      .single();
-    if (error) throw error;
-    renderCounter(data.value);
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/counters?id=eq.main&select=value&limit=1`,
+      { headers: { apikey: SUPABASE_PUBLISHABLE_KEY } },
+    );
+    const rows = await response.json().catch(() => null);
+    if (!response.ok || !Array.isArray(rows) || rows.length !== 1) {
+      throw new Error(`Counter read failed (${response.status}).`);
+    }
+    renderCounter(rows[0].value);
   }
 
-  async function processQueue() {
-    if (state.processing || state.queued === 0 || !state.connected) return;
-    state.processing = true;
-    clearTimeout(state.retryTimer);
-
+  async function sendQueuedClick() {
+    state.inFlight += 1;
     try {
-      while (state.queued > 0 && state.connected) {
-        const result = await incrementCounter();
-        renderCounter(result.new_value);
-        state.queued -= 1;
-        renderPending();
-      }
-      elements.message.textContent = "";
+      const result = await incrementCounter();
+      renderCounter(result.new_value);
+      state.queued -= 1;
+      renderPending();
+      if (state.retryTimer === null) elements.message.textContent = "";
     } catch (error) {
       console.error("Could not register click:", error);
       elements.message.textContent = "Your click is queued. Trying again…";
+      clearTimeout(state.retryTimer);
       state.retryTimer = window.setTimeout(
-        processQueue,
+        () => {
+          state.retryTimer = null;
+          processQueue();
+        },
         error.retryAfterMs || DEFAULT_RETRY_DELAY_MS,
       );
     } finally {
-      state.processing = false;
+      state.inFlight -= 1;
+      processQueue();
+    }
+  }
+
+  function processQueue() {
+    if (!state.connected || state.retryTimer !== null) return;
+
+    const waiting = state.queued - state.inFlight;
+    const availableSlots = MAX_CONCURRENT_REQUESTS - state.inFlight;
+    const requestsToStart = Math.min(waiting, availableSlots);
+    for (let index = 0; index < requestsToStart; index += 1) {
+      void sendQueuedClick();
     }
   }
 
@@ -123,12 +157,16 @@ if (!configured) {
     state.queued += 1;
     renderPending();
     elements.button.classList.add("is-pressed");
-    window.setTimeout(() => elements.button.classList.remove("is-pressed"), 120);
+    clearTimeout(state.pressTimer);
+    state.pressTimer = window.setTimeout(
+      () => elements.button.classList.remove("is-pressed"),
+      120,
+    );
     if ("vibrate" in navigator) navigator.vibrate(18);
     processQueue();
   });
 
-  const channel = supabase
+  const channel = realtime
     .channel("public-counter")
     .on("postgres_changes", {
       event: "UPDATE", schema: "public", table: "counters", filter: "id=eq.main",
@@ -161,6 +199,6 @@ if (!configured) {
   loadCounter().catch((error) => {
     console.error("Could not load the counter:", error);
     showError("Could not access the counter. Check the configuration.");
-    supabase.removeChannel(channel);
+    realtime.removeChannel(channel);
   });
 }

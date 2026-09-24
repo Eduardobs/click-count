@@ -17,3 +17,15 @@ export function counterSize(value) {
   if (length > 10) return "long";
   return "normal";
 }
+
+/** Compare decimal strings without losing precision through Number conversion. */
+export function compareCounters(left, right) {
+  const normalizedLeft = normalizeCounter(left);
+  const normalizedRight = normalizeCounter(right);
+
+  if (normalizedLeft.length !== normalizedRight.length) {
+    return normalizedLeft.length < normalizedRight.length ? -1 : 1;
+  }
+  if (normalizedLeft === normalizedRight) return 0;
+  return normalizedLeft < normalizedRight ? -1 : 1;
+}

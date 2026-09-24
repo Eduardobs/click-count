@@ -5,6 +5,14 @@ const DEFAULT_ALLOWED_ORIGINS = [
   "http://127.0.0.1:8080",
 ];
 
+const ALLOWED_ORIGINS = (() => {
+  const configured = Deno.env.get("ALLOWED_ORIGINS");
+  const origins = configured
+    ? configured.split(",").map((origin) => origin.trim()).filter(Boolean)
+    : DEFAULT_ALLOWED_ORIGINS;
+  return new Set(origins);
+})();
+
 function secretKey(): string | null {
   const keys = Deno.env.get("SUPABASE_SECRET_KEYS");
   if (keys) {
@@ -18,14 +26,6 @@ function secretKey(): string | null {
   return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 }
 
-function allowedOrigins(): Set<string> {
-  const configured = Deno.env.get("ALLOWED_ORIGINS");
-  const origins = configured
-    ? configured.split(",").map((origin) => origin.trim()).filter(Boolean)
-    : DEFAULT_ALLOWED_ORIGINS;
-  return new Set(origins);
-}
-
 function corsHeaders(origin: string | null): HeadersInit {
   const headers: Record<string, string> = {
     "Access-Control-Allow-Headers": "apikey, content-type",
@@ -35,7 +35,7 @@ function corsHeaders(origin: string | null): HeadersInit {
     "Vary": "Origin",
     "X-Content-Type-Options": "nosniff",
   };
-  if (origin && allowedOrigins().has(origin)) {
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
     headers["Access-Control-Allow-Origin"] = origin;
   }
   return headers;
@@ -57,7 +57,7 @@ Deno.serve(async (request) => {
   const headers = corsHeaders(origin);
 
   if (request.method === "OPTIONS") {
-    if (!origin || !allowedOrigins().has(origin)) {
+    if (!origin || !ALLOWED_ORIGINS.has(origin)) {
       return jsonResponse({ error: "origin_not_allowed" }, 403, origin);
     }
     return new Response(null, { status: 204, headers });
@@ -67,7 +67,7 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: "method_not_allowed" }, 405, origin, { Allow: "POST" });
   }
 
-  if (origin && !allowedOrigins().has(origin)) {
+  if (origin && !ALLOWED_ORIGINS.has(origin)) {
     return jsonResponse({ error: "origin_not_allowed" }, 403, origin);
   }
 
