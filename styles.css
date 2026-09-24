@@ -156,8 +156,6 @@ h1 {
 .counter-value {
   display: block;
   width: 100%;
-  max-height: 42vh;
-  overflow: auto;
   color: var(--ink);
   font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
   font-size: clamp(3.15rem, 10vw, 9rem);
@@ -166,7 +164,6 @@ h1 {
   letter-spacing: -0.09em;
   line-height: 0.92;
   overflow-wrap: anywhere;
-  scrollbar-width: thin;
 }
 
 .counter-value[data-size="long"] { font-size: clamp(2.4rem, 7vw, 6rem); }
