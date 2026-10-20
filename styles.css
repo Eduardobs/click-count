@@ -108,14 +108,12 @@ button, a { -webkit-tap-highlight-color: transparent; }
   grid-template-areas: "number" "button" "message";
   align-content: center;
   justify-content: center;
-  padding-block: clamp(48px, 9vh, 96px);
 }
 
 .counter-area {
   grid-area: number;
   align-self: center;
   min-width: 0;
-  padding: clamp(32px, 6vw, 72px) 0;
   text-align: center;
 }
 
@@ -149,7 +147,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
   grid-area: button;
   width: 100%;
   min-height: clamp(112px, 17vh, 156px);
-  margin-top: clamp(16px, 3vh, 32px);
   padding: 24px clamp(24px, 6vw, 72px);
   display: flex;
   align-items: center;
