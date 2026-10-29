@@ -1,3 +1,4 @@
+import { currentUser, accessToken, signIn, signUp, signOut, socialLogin, initializeAuth } from "./auth.js";
 import { RealtimeClient } from "@supabase/realtime-js";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "./config.js";
 import { compareCounters, normalizeCounter } from "./counter-utils.js";
@@ -23,8 +24,10 @@ const elements = {
 
 const state = {
   queued: 0,
+  clicks: [],
   inFlight: 0,
   connected: false,
+  authReady: false,
   retryTimer: null,
   pressTimer: null,
   renderedValue: null,
@@ -34,7 +37,7 @@ function setConnection(status, label) {
   state.connected = status === "online";
   elements.livePill.dataset.state = status;
   elements.liveLabel.textContent = label;
-  elements.button.disabled = !state.connected;
+  elements.button.disabled = !state.connected || !state.authReady;
 }
 
 function renderCounter(rawValue) {
@@ -82,12 +85,14 @@ if (!configured) {
     },
   });
 
-  async function incrementCounter() {
+  async function incrementCounter(click) {
+    const token = await accessToken(click.userId);
     const response = await fetch(`${SUPABASE_URL}/functions/v1/increment-counter`, {
       method: "POST",
       headers: {
         apikey: SUPABASE_PUBLISHABLE_KEY,
         "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: "{}",
     });
@@ -117,12 +122,15 @@ if (!configured) {
     renderCounter(rows[0].value);
   }
 
-  async function sendQueuedClick() {
+  async function sendQueuedClick(click) {
+    click.sending = true;
     state.inFlight += 1;
     try {
-      const result = await incrementCounter();
+      const result = await incrementCounter(click);
       renderCounter(result.new_value);
+      state.clicks.splice(state.clicks.indexOf(click), 1);
       state.queued -= 1;
+      if (click.userId === currentUser()?.id && result.user_clicks) renderPersonal(result.user_clicks);
       renderPending();
       if (state.retryTimer === null) elements.message.textContent = "";
     } catch (error) {
@@ -137,6 +145,7 @@ if (!configured) {
         error.retryAfterMs || DEFAULT_RETRY_DELAY_MS,
       );
     } finally {
+      click.sending = false;
       state.inFlight -= 1;
       processQueue();
     }
@@ -149,11 +158,13 @@ if (!configured) {
     const availableSlots = MAX_CONCURRENT_REQUESTS - state.inFlight;
     const requestsToStart = Math.min(waiting, availableSlots);
     for (let index = 0; index < requestsToStart; index += 1) {
-      void sendQueuedClick();
+      const click = state.clicks.find(item => !item.sending);
+      if (click) void sendQueuedClick(click);
     }
   }
 
   elements.button.addEventListener("click", () => {
+    state.clicks.push({ userId: currentUser()?.id || null, sending: false });
     state.queued += 1;
     renderPending();
     elements.button.classList.add("is-pressed");
@@ -202,3 +213,127 @@ if (!configured) {
     realtime.removeChannel(channel);
   });
 }
+
+const accountForm = document.querySelector('#accountForm');
+const authMessage = document.querySelector('#modalAuthMessage');
+const accountMessage = document.querySelector('#authMessage');
+const authDialog = document.querySelector('#authDialog');
+const openAuth = document.querySelector('#openAuth');
+let authMode = 'login';
+let authBusy = false;
+function setAuthMode(mode) {
+  authMode = mode;
+  const signup = mode === 'signup';
+  document.querySelector('#authTitle').textContent = signup ? 'Criar sua conta' : 'Entrar na sua conta';
+  document.querySelector('#displayNameField').hidden = !signup;
+  document.querySelector('#displayName').required = signup;
+  document.querySelector('#signupHint').hidden = !signup;
+  document.querySelector('#password').autocomplete = signup ? 'new-password' : 'current-password';
+  document.querySelector('#password').minLength = signup ? 12 : 1;
+  document.querySelector('#authSubmit').textContent = signup ? 'Criar conta' : 'Entrar';
+  document.querySelector('#loginTab').setAttribute('aria-pressed', String(!signup));
+  document.querySelector('#signupTab').setAttribute('aria-pressed', String(signup));
+}
+document.querySelector('#loginTab').addEventListener('click', () => { if (!authBusy) setAuthMode('login'); });
+document.querySelector('#signupTab').addEventListener('click', () => { if (!authBusy) setAuthMode('signup'); });
+openAuth.addEventListener('click', () => {
+  authMessage.textContent = '';
+  setAuthMode('login');
+  authDialog.showModal();
+  document.querySelector('#email').focus();
+});
+document.querySelector('#closeAuth').addEventListener('click', () => authDialog.close());
+authDialog.addEventListener('close', () => { document.querySelector('#password').value = ''; });
+const summary = document.querySelector('#accountSummary');
+const logoutButton = document.querySelector('#signOut');
+let personalValue = '0';
+function renderPersonal(value) {
+  if (compareCounters(value, personalValue) >= 0) personalValue = value;
+  summary.textContent = currentUser() ? `Seus cliques: ${personalValue.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}` : 'Você está clicando como visitante.';
+}
+function renderAccount() {
+  const loggedIn = Boolean(currentUser());
+  openAuth.hidden = loggedIn;
+  if (loggedIn && authDialog.open) authDialog.close();
+  document.querySelector('#socialLogins').hidden = loggedIn;
+  logoutButton.hidden = !loggedIn;
+  personalValue = '0';
+  renderPersonal('0');
+}
+async function rpc(name, token) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+    method: 'POST', headers: { apikey: SUPABASE_PUBLISHABLE_KEY, 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: '{}',
+  });
+  if (!response.ok) throw new Error('Não foi possível carregar os dados.');
+  return response.json();
+}
+async function loadRanking() {
+  const message = document.querySelector('#rankingMessage');
+  const button = document.querySelector('#refreshRanking');
+  button.disabled = true;
+  try {
+    const rows = await rpc('click_leaderboard');
+    const list = document.querySelector('#leaderboard');
+    list.replaceChildren();
+    for (const row of rows) {
+      const item = document.createElement('li');
+      const entry = document.createElement('div');
+      entry.className = 'ranking-entry';
+      const name = document.createElement('span');
+      name.textContent = row.display_name;
+      const total = document.createElement('strong');
+      total.textContent = normalizeCounter(row.clicks).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      entry.append(name, total); item.append(entry); list.append(item);
+    }
+    message.textContent = rows.length ? '' : 'Seja o primeiro a participar!';
+    const user = currentUser();
+    if (user) {
+      const value = await rpc('my_clicks', await accessToken(user.id));
+      if (currentUser()?.id === user.id) renderPersonal(value);
+    }
+  } catch { message.textContent = 'Ranking indisponível. Tente atualizar em instantes.'; }
+  finally { button.disabled = false; }
+}
+accountForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (state.queued && authMode === 'signup') { authMessage.textContent = 'Aguarde o envio dos cliques pendentes antes de criar outra conta.'; return; }
+  if (authBusy) return;
+  authBusy = true;
+  const buttons = authDialog.querySelectorAll('button:not(#closeAuth)');
+  buttons.forEach(button => { button.disabled = true; });
+  authMessage.textContent = '';
+  const password = document.querySelector('#password');
+  try {
+    const email = document.querySelector('#email').value.trim();
+    if (authMode === 'signup') {
+      const name = document.querySelector('#displayName').value.trim();
+      if (!name) throw new Error('Escolha um apelido público para criar a conta.');
+      await signUp(email, password.value, name);
+      if (currentUser()) {
+        accountMessage.textContent = 'Conta criada! Você já está conectado e pode contabilizar seus cliques.';
+      } else {
+        setAuthMode('login');
+        authMessage.textContent = 'Conta criada. Este servidor exige confirmação de e-mail: confirme o cadastro para entrar.';
+      }
+    } else { await signIn(email, password.value); accountMessage.textContent = 'Você entrou na sua conta.'; }
+    renderAccount();
+    void loadRanking();
+  } catch (error) { authMessage.textContent = error.message; }
+  finally { authBusy = false; password.value = ''; buttons.forEach(button => { button.disabled = false; }); }
+});
+logoutButton.addEventListener('click', async () => {
+  if (state.queued) { accountMessage.textContent = 'Aguarde o envio dos cliques pendentes antes de sair.'; return; }
+  try {
+    await signOut(); renderAccount(); accountMessage.textContent = 'Você saiu da conta.';
+  } catch (error) { accountMessage.textContent = error.message; }
+});
+for (const button of document.querySelectorAll('[data-provider]')) {
+  button.addEventListener('click', async () => {
+    if (state.queued) { authMessage.textContent = 'Aguarde o envio dos cliques pendentes antes de entrar.'; return; }
+    try { await socialLogin(button.dataset.provider); }
+    catch (error) { authMessage.textContent = error.message; }
+  });
+}
+document.querySelector('#refreshRanking').addEventListener('click', () => { void loadRanking(); });
+setAuthMode('login');
+initializeAuth().catch(() => { accountMessage.textContent = 'Não foi possível restaurar o login. Entre novamente.'; }).finally(() => { state.authReady = true; elements.button.disabled = !state.connected; renderAccount(); void loadRanking(); });

@@ -37,7 +37,49 @@
 
         <p class="message" id="message" role="status"></p>
       </section>
+      <section class="community" aria-label="Conta e ranking">
+        <div class="account-panel">
+          <h2>Seus cliques contam</h2>
+          <p>Clique à vontade, sem cadastro. Entre para salvar seus próximos cliques e participar do ranking.</p>
+          <p id="accountSummary" role="status"></p>
+          <button id="openAuth" type="button">Criar conta ou fazer login</button>
+          <button id="signOut" type="button" hidden>Sair</button>
+          <p id="authMessage" role="status"></p>
+        </div>
+        <div class="ranking-panel">
+          <h2>Ranking de cliques</h2>
+          <p>Os 20 participantes com mais cliques.</p>
+          <ol id="leaderboard" aria-label="Participantes"></ol>
+          <p id="rankingMessage" role="status">Carregando ranking…</p>
+          <button id="refreshRanking" type="button">Atualizar ranking</button>
+        </div>
+      </section>
     </main>
+
+    <dialog id="authDialog" class="auth-dialog" aria-labelledby="authTitle">
+      <div class="auth-dialog-header">
+        <h2 id="authTitle">Entrar na sua conta</h2>
+        <button id="closeAuth" type="button" aria-label="Fechar">✕</button>
+      </div>
+      <p>Salve seus cliques e participe do ranking.</p>
+          <div id="socialLogins" class="social-logins">
+            <button type="button" data-provider="google">Entrar com Google</button>
+            <button type="button" data-provider="facebook">Entrar com Facebook</button>
+            <button type="button" data-provider="x">Entrar com X</button>
+          </div>
+          <div class="auth-tabs" aria-label="Acesso à conta">
+            <button id="loginTab" type="button" aria-pressed="true">Entrar</button>
+            <button id="signupTab" type="button" aria-pressed="false">Criar conta</button>
+          </div>
+          <form id="accountForm">
+            <label id="displayNameField" hidden>Apelido público <input id="displayName" name="displayName" maxlength="40" autocomplete="nickname" /></label>
+            <label>E-mail <input id="email" name="email" type="email" autocomplete="email" required /></label>
+            <label>Senha <input id="password" name="password" type="password" minlength="12" autocomplete="current-password" required /></label>
+            <button id="authSubmit" type="submit">Entrar</button>
+            <small id="signupHint" hidden>Escolha um apelido público e uma senha com pelo menos 12 caracteres. Apenas o apelido e seus cliques aparecem no ranking.</small>
+          </form>
+      <p id="modalAuthMessage" role="status" aria-live="polite"></p>
+    </dialog>
 
     <noscript>Enable JavaScript to take part in the counter.</noscript>
     <script type="module" src="./app.bundle.js"></script>

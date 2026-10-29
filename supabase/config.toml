@@ -1,2 +1,7 @@
 [functions.increment-counter]
 verify_jwt = false
+
+# Optional registration: a successful signup immediately creates a session.
+[auth.email]
+enable_signup = true
+enable_confirmations = false

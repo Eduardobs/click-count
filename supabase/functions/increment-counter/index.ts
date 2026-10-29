@@ -28,7 +28,7 @@ function secretKey(): string | null {
 
 function corsHeaders(origin: string | null): HeadersInit {
   const headers: Record<string, string> = {
-    "Access-Control-Allow-Headers": "apikey, content-type",
+    "Access-Control-Allow-Headers": "apikey, content-type, authorization",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Cache-Control": "no-store",
     "Content-Type": "application/json; charset=utf-8",
@@ -86,10 +86,22 @@ Deno.serve(async (request) => {
       rpcHeaders.Authorization = `Bearer ${serviceKey}`;
     }
 
+    let userId: string | null = null;
+    const authorization = request.headers.get("Authorization");
+    if (authorization) {
+      const userResponse = await fetch(`${PROJECT_URL}/auth/v1/user`, {
+        headers: { apikey: serviceKey, Authorization: authorization },
+      });
+      if (!userResponse.ok) return jsonResponse({ error: "invalid_session" }, 401, origin);
+      const user = await userResponse.json();
+      if (typeof user.id !== "string") return jsonResponse({ error: "invalid_session" }, 401, origin);
+      userId = user.id;
+    }
+
     const rpcResponse = await fetch(`${PROJECT_URL}/rest/v1/rpc/increment_counter_backend`, {
       method: "POST",
       headers: rpcHeaders,
-      body: "{}",
+      body: JSON.stringify({ click_user_id: userId }),
     });
     const rpcBody = await rpcResponse.json().catch(() => null);
 
@@ -105,7 +117,7 @@ Deno.serve(async (request) => {
     }
 
     return jsonResponse(
-      { new_value: result.new_value, changed_at: result.changed_at },
+      { new_value: result.new_value, changed_at: result.changed_at, user_clicks: result.user_clicks },
       200,
       origin,
     );
