@@ -31,6 +31,7 @@ const state = {
   retryTimer: null,
   pressTimer: null,
   renderedValue: null,
+  clicksSinceRankingRefresh: 0,
 };
 
 function setConnection(status, label) {
@@ -130,6 +131,11 @@ if (!configured) {
       renderCounter(result.new_value);
       state.clicks.splice(state.clicks.indexOf(click), 1);
       state.queued -= 1;
+      state.clicksSinceRankingRefresh += 1;
+      if (state.clicksSinceRankingRefresh >= 10) {
+        state.clicksSinceRankingRefresh = 0;
+        void loadRanking();
+      }
       if (click.userId === currentUser()?.id && result.user_clicks) renderPersonal(result.user_clicks);
       renderPending();
       if (state.retryTimer === null) elements.message.textContent = "";
@@ -268,8 +274,12 @@ async function rpc(name, token) {
   return response.json();
 }
 let rankingLoading = false;
+let rankingRefreshPending = false;
 async function loadRanking() {
-  if (rankingLoading) return;
+  if (rankingLoading) {
+    rankingRefreshPending = true;
+    return;
+  }
   rankingLoading = true;
   const message = document.querySelector('#rankingMessage');
   const button = document.querySelector('#refreshRanking');
@@ -302,6 +312,10 @@ async function loadRanking() {
     button.disabled = false;
     button.removeAttribute('aria-busy');
     document.querySelector('#refreshRankingLabel').textContent = 'Atualizar ranking';
+    if (rankingRefreshPending) {
+      rankingRefreshPending = false;
+      void loadRanking();
+    }
   }
 }
 accountForm.addEventListener('submit', async event => {
@@ -351,5 +365,5 @@ initializeAuth().catch(() => { accountMessage.textContent = 'Não foi possível 
   elements.button.disabled = !state.connected;
   renderAccount();
   void loadRanking();
-  window.setInterval(() => { void loadRanking(); }, 1000);
+  window.setInterval(() => { void loadRanking(); }, 20000);
 });
