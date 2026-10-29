@@ -7,7 +7,8 @@
     "build": "esbuild app.js --bundle --format=esm --minify --outfile=app.bundle.js",
     "dev": "esbuild app.js --bundle --format=esm --servedir=. --outfile=app.bundle.js --serve=localhost:8080",
     "test": "node --test",
-    "check": "npm test && npm run build"
+    "check": "npm test && npm run build",
+    "check:backend": "node scripts/check-backend.js"
   },
   "dependencies": {
     "@supabase/realtime-js": "2.117.1",

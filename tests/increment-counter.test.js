@@ -70,3 +70,19 @@ test('CORS preflight permits authorization from allowed origins only', async () 
   }));
   assert.equal(denied.status, 403);
 });
+
+test('GitHub Pages preflight accepts authenticated click headers', async () => {
+  const response = await handler(new Request('https://test/', {
+    method: 'OPTIONS',
+    headers: {
+      Origin: 'https://eduardobs.github.io',
+      'Access-Control-Request-Method': 'POST',
+      'Access-Control-Request-Headers': 'apikey,content-type,authorization',
+    },
+  }));
+  assert.equal(response.status, 204);
+  assert.equal(response.headers.get('Access-Control-Allow-Origin'), 'https://eduardobs.github.io');
+  const allowed = response.headers.get('Access-Control-Allow-Headers').toLowerCase().split(',').map(value => value.trim());
+  for (const header of ['apikey', 'content-type', 'authorization']) assert.ok(allowed.includes(header));
+  assert.match(response.headers.get('Access-Control-Allow-Methods'), /POST/);
+});

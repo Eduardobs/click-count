@@ -42,8 +42,8 @@
           <h2>Seus cliques contam</h2>
           <p>Clique à vontade, sem cadastro. Entre para salvar seus próximos cliques e participar do ranking.</p>
           <p id="accountSummary" role="status"></p>
-          <button id="openAuth" type="button">Criar conta ou fazer login</button>
-          <button id="signOut" type="button" hidden>Sair</button>
+          <button id="openAuth" class="action-button primary-action" type="button"><svg class="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="4"/><path d="M2 21v-2a7 7 0 0 1 14 0v2M20 8v6M17 11h6"/></svg><span>Criar conta ou fazer login</span></button>
+          <button id="signOut" class="action-button secondary-action" type="button" hidden><svg class="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 17l5-5-5-5M3 12h12M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/></svg><span>Sair</span></button>
           <p id="authMessage" role="status"></p>
         </div>
         <div class="ranking-panel">
@@ -51,7 +51,7 @@
           <p>Os 20 participantes com mais cliques.</p>
           <ol id="leaderboard" aria-label="Participantes"></ol>
           <p id="rankingMessage" role="status">Carregando ranking…</p>
-          <button id="refreshRanking" type="button">Atualizar ranking</button>
+          <button id="refreshRanking" class="action-button secondary-action" type="button"><svg class="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 6a8 8 0 0 1 14 6M4 12a8 8 0 0 0 14 6"/></svg><span id="refreshRankingLabel">Atualizar ranking</span></button>
         </div>
       </section>
     </main>
@@ -63,19 +63,19 @@
       </div>
       <p>Salve seus cliques e participe do ranking.</p>
           <div id="socialLogins" class="social-logins">
-            <button type="button" data-provider="google">Entrar com Google</button>
-            <button type="button" data-provider="facebook">Entrar com Facebook</button>
-            <button type="button" data-provider="x">Entrar com X</button>
+            <button class="social-button social-google" type="button" data-provider="google"><img src="./assets/login/google.svg" width="22" height="22" alt="" aria-hidden="true" /><span>Entrar com Google</span></button>
+            <button class="social-button social-facebook" type="button" data-provider="facebook"><img src="./assets/login/facebook.svg" width="22" height="22" alt="" aria-hidden="true" /><span>Entrar com Facebook</span></button>
+            <button class="social-button social-x" type="button" data-provider="x"><img src="./assets/login/x.svg" width="22" height="22" alt="" aria-hidden="true" /><span>Entrar com X</span></button>
           </div>
           <div class="auth-tabs" aria-label="Acesso à conta">
-            <button id="loginTab" type="button" aria-pressed="true">Entrar</button>
-            <button id="signupTab" type="button" aria-pressed="false">Criar conta</button>
+            <button id="loginTab" class="action-button" type="button" aria-pressed="true"><svg class="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 17l5-5-5-5M3 12h12M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/></svg><span>Entrar</span></button>
+            <button id="signupTab" class="action-button" type="button" aria-pressed="false"><svg class="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="4"/><path d="M2 21v-2a7 7 0 0 1 14 0v2M20 8v6M17 11h6"/></svg><span>Criar conta</span></button>
           </div>
           <form id="accountForm">
             <label id="displayNameField" hidden>Apelido público <input id="displayName" name="displayName" maxlength="40" autocomplete="nickname" /></label>
             <label>E-mail <input id="email" name="email" type="email" autocomplete="email" required /></label>
             <label>Senha <input id="password" name="password" type="password" minlength="12" autocomplete="current-password" required /></label>
-            <button id="authSubmit" type="submit">Entrar</button>
+            <button id="authSubmit" class="action-button primary-action" type="submit"><svg class="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 17l5-5-5-5M3 12h12M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/></svg><span id="authSubmitLabel">Entrar</span></button>
             <small id="signupHint" hidden>Escolha um apelido público e uma senha com pelo menos 12 caracteres. Apenas o apelido e seus cliques aparecem no ranking.</small>
           </form>
       <p id="modalAuthMessage" role="status" aria-live="polite"></p>

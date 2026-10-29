@@ -256,3 +256,37 @@ noscript {
 .auth-tabs button { flex: 1; }
 .auth-tabs button[aria-pressed="false"] { background: transparent; color: var(--ink); }
 body:has(.auth-dialog[open]) { overflow: hidden; }
+
+:is(.community, .auth-dialog) button {
+  min-height: 44px;
+  font-size: .9rem;
+  font-weight: 650;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+:is(.community, .auth-dialog) button:hover:not(:disabled) { box-shadow: 0 3px 10px #19191618; }
+:is(.community, .auth-dialog) button:active:not(:disabled) { transform: translateY(1px); }
+.action-button { display: inline-flex; align-items: center; justify-content: center; gap: 10px; }
+.button-icon { width: 20px; height: 20px; flex-shrink: 0; }
+:is(.community, .auth-dialog) .primary-action { background: var(--accent); border-color: var(--accent); color: white; }
+:is(.community, .auth-dialog) .primary-action:hover:not(:disabled) { background: var(--accent-dark); border-color: var(--accent-dark); }
+.community .secondary-action { background: #ffffff70; color: var(--ink); }
+.community .secondary-action:hover:not(:disabled) { background: white; border-color: var(--ink); }
+.social-logins { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.auth-dialog .social-button { display: grid; grid-template-columns: 22px 1fr 22px; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 12px 18px; border-radius: 10px; }
+.social-button img { display: block; width: 22px; height: 22px; object-fit: contain; }
+.auth-dialog .social-google { background: white; border-color: #dadce0; color: #1f1f1f; }
+.auth-dialog .social-google:hover:not(:disabled) { background: #f8faff; border-color: #a9c7f5; }
+.auth-dialog .social-facebook { background: #0866ff; border-color: #0866ff; color: white; }
+.auth-dialog .social-facebook:hover:not(:disabled) { background: #0756d8; border-color: #0756d8; }
+.auth-dialog .social-x { background: #0f1419; border-color: #0f1419; color: white; }
+.auth-dialog .social-x:hover:not(:disabled) { background: #293139; border-color: #293139; }
+#refreshRanking[aria-busy="true"] .button-icon { animation: refresh-spin 1s linear infinite; }
+@keyframes refresh-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  :is(.community, .auth-dialog) button { transition: none; }
+  #refreshRanking[aria-busy="true"] .button-icon { animation: none; }
+}
+@media (max-width: 390px) {
+  .auth-dialog { padding: 20px; }
+  .auth-tabs button { padding-inline: 10px; gap: 6px; }
+}

@@ -91,3 +91,31 @@ With email confirmation disabled, registration also signs the user in immediatel
 If the hosted project still requires confirmation, the modal explains that
 requirement rather than claiming the user is authenticated. Disabling confirmation
 means ownership of an email address is not verified during registration.
+
+## Troubleshooting CORS and missing ranking
+
+If the browser reports `authorization is not allowed by Access-Control-Allow-Headers`
+while `click_leaderboard` returns 404, check that the backend changes were deployed,
+not just the GitHub Pages frontend. The current Edge Function permits the
+Authorization header. An older deployed function permits only `apikey, content-type`.
+
+Against the linked project `kmbtkszxonrkozgotqrf`, run:
+
+```sh
+supabase login
+supabase db push
+supabase functions deploy increment-counter --project-ref kmbtkszxonrkozgotqrf
+npm run check:backend
+```
+
+Without the CLI, run `supabase/migrations/20261029000000_optional_accounts.sql`
+in the project's SQL Editor (once), then replace the `increment-counter` source
+with `supabase/functions/increment-counter/index.ts` in Edge Functions and deploy.
+Keep gateway JWT verification disabled for this public endpoint; supplied session
+tokens are validated inside the function. Never put server credentials in the browser.
+
+`check:backend` performs a preflight and reads the public leaderboard without
+incrementing the counter. Run it after backend deployments. A passing local test
+or frontend build does not verify the function deployed in Supabase. If the migration
+was already applied but the RPC is missing from the API schema cache, execute
+`NOTIFY pgrst, 'reload schema';` in SQL Editor and retry the backend check.

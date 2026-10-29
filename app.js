@@ -230,7 +230,7 @@ function setAuthMode(mode) {
   document.querySelector('#signupHint').hidden = !signup;
   document.querySelector('#password').autocomplete = signup ? 'new-password' : 'current-password';
   document.querySelector('#password').minLength = signup ? 12 : 1;
-  document.querySelector('#authSubmit').textContent = signup ? 'Criar conta' : 'Entrar';
+  document.querySelector('#authSubmitLabel').textContent = signup ? 'Criar conta' : 'Entrar';
   document.querySelector('#loginTab').setAttribute('aria-pressed', String(!signup));
   document.querySelector('#signupTab').setAttribute('aria-pressed', String(signup));
 }
@@ -267,10 +267,15 @@ async function rpc(name, token) {
   if (!response.ok) throw new Error('Não foi possível carregar os dados.');
   return response.json();
 }
+let rankingLoading = false;
 async function loadRanking() {
+  if (rankingLoading) return;
+  rankingLoading = true;
   const message = document.querySelector('#rankingMessage');
   const button = document.querySelector('#refreshRanking');
   button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  document.querySelector('#refreshRankingLabel').textContent = 'Atualizando…';
   try {
     const rows = await rpc('click_leaderboard');
     const list = document.querySelector('#leaderboard');
@@ -292,7 +297,12 @@ async function loadRanking() {
       if (currentUser()?.id === user.id) renderPersonal(value);
     }
   } catch { message.textContent = 'Ranking indisponível. Tente atualizar em instantes.'; }
-  finally { button.disabled = false; }
+  finally {
+    rankingLoading = false;
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
+    document.querySelector('#refreshRankingLabel').textContent = 'Atualizar ranking';
+  }
 }
 accountForm.addEventListener('submit', async event => {
   event.preventDefault();
@@ -336,4 +346,10 @@ for (const button of document.querySelectorAll('[data-provider]')) {
 }
 document.querySelector('#refreshRanking').addEventListener('click', () => { void loadRanking(); });
 setAuthMode('login');
-initializeAuth().catch(() => { accountMessage.textContent = 'Não foi possível restaurar o login. Entre novamente.'; }).finally(() => { state.authReady = true; elements.button.disabled = !state.connected; renderAccount(); void loadRanking(); });
+initializeAuth().catch(() => { accountMessage.textContent = 'Não foi possível restaurar o login. Entre novamente.'; }).finally(() => {
+  state.authReady = true;
+  elements.button.disabled = !state.connected;
+  renderAccount();
+  void loadRanking();
+  window.setInterval(() => { void loadRanking(); }, 1000);
+});
