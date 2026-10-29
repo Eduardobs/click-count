@@ -18,42 +18,53 @@
           <span class="brand-mark" aria-hidden="true">+</span>
           <span>one more</span>
         </a>
-        <div class="live-pill" id="livePill" data-state="loading">
-          <span class="live-dot" aria-hidden="true"></span>
-          <span id="liveLabel">connecting</span>
+        <div class="header-account">
+          <div id="guestActions" class="account-actions">
+            <button id="openAuth" class="action-button secondary-action" type="button">Entrar</button>
+            <button id="openSignup" class="action-button primary-action" type="button">Criar conta</button>
+          </div>
+          <div id="userAccount" class="user-account" hidden>
+            <button id="avatarButton" class="user-trigger" type="button" popovertarget="accountMenu" aria-label="Abrir menu da conta">
+              <span id="userName" class="user-name"></span>
+              <span id="userAvatar" class="user-avatar" aria-hidden="true"></span>
+            </button>
+            <p id="accountSummary" role="status"></p>
+            <div id="accountMenu" class="account-menu" popover>
+              <button id="signOut" class="action-button secondary-action" type="button">Sair</button>
+            </div>
+          </div>
+          <p id="authMessage" role="status"></p>
         </div>
       </header>
 
-      <section class="counter-card" aria-label="Shared counter">
-        <div class="counter-area">
-          <output class="counter-value" id="counterValue" aria-live="polite" aria-atomic="true">—</output>
-          <p class="pending" id="pendingLabel" aria-live="polite"></p>
-        </div>
+      <div class="content-layout">
+        <section class="counter-card" aria-label="Shared counter">
+          <div class="live-pill" id="livePill" data-state="loading">
+            <span class="live-dot" aria-hidden="true"></span>
+            <span id="liveLabel">connecting</span>
+          </div>
+          <div class="counter-area">
+            <output class="counter-value" id="counterValue" aria-live="polite" aria-atomic="true">—</output>
+            <p class="pending" id="pendingLabel" aria-live="polite"></p>
+          </div>
 
-        <button class="click-button" id="clickButton" type="button" disabled>
-          <span class="button-plus" aria-hidden="true">+1</span>
-          <span class="button-copy">count my click</span>
-        </button>
+          <button class="click-button" id="clickButton" type="button" disabled>
+            <span class="button-plus" aria-hidden="true">+1</span>
+            <span class="button-copy">count my click</span>
+          </button>
 
-        <p class="message" id="message" role="status"></p>
-      </section>
-      <section class="community" aria-label="Conta e ranking">
-        <div class="account-panel">
-          <h2>Seus cliques contam</h2>
-          <p>Clique à vontade, sem cadastro. Entre para salvar seus próximos cliques e participar do ranking.</p>
-          <p id="accountSummary" role="status"></p>
-          <button id="openAuth" class="action-button primary-action" type="button"><svg class="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="4"/><path d="M2 21v-2a7 7 0 0 1 14 0v2M20 8v6M17 11h6"/></svg><span>Criar conta ou fazer login</span></button>
-          <button id="signOut" class="action-button secondary-action" type="button" hidden><svg class="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 17l5-5-5-5M3 12h12M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/></svg><span>Sair</span></button>
-          <p id="authMessage" role="status"></p>
-        </div>
-        <div class="ranking-panel">
-          <h2>Ranking de cliques</h2>
-          <p>Os 20 participantes com mais cliques.</p>
-          <ol id="leaderboard" aria-label="Participantes"></ol>
-          <p id="rankingMessage" role="status">Carregando ranking…</p>
-          <button id="refreshRanking" class="action-button secondary-action" type="button"><svg class="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 6a8 8 0 0 1 14 6M4 12a8 8 0 0 0 14 6"/></svg><span id="refreshRankingLabel">Atualizar ranking</span></button>
-        </div>
-      </section>
+          <p class="message" id="message" role="status"></p>
+        </section>
+        <section class="community" aria-label="Ranking de cliques">
+          <div class="ranking-panel">
+            <h2>Ranking de cliques</h2>
+            <p>Os 20 participantes com mais cliques.</p>
+            <ol id="leaderboard" aria-label="Participantes"></ol>
+            <p id="rankingMessage" role="status">Carregando ranking…</p>
+            <button id="refreshRanking" class="action-button secondary-action" type="button"><svg class="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 6a8 8 0 0 1 14 6M4 12a8 8 0 0 0 14 6"/></svg><span id="refreshRankingLabel">Atualizar ranking</span></button>
+          </div>
+        </section>
+      </div>
     </main>
 
     <dialog id="authDialog" class="auth-dialog" aria-labelledby="authTitle">

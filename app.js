@@ -225,6 +225,7 @@ const authMessage = document.querySelector('#modalAuthMessage');
 const accountMessage = document.querySelector('#authMessage');
 const authDialog = document.querySelector('#authDialog');
 const openAuth = document.querySelector('#openAuth');
+const accountMenu = document.querySelector('#accountMenu');
 let authMode = 'login';
 let authBusy = false;
 function setAuthMode(mode) {
@@ -242,12 +243,14 @@ function setAuthMode(mode) {
 }
 document.querySelector('#loginTab').addEventListener('click', () => { if (!authBusy) setAuthMode('login'); });
 document.querySelector('#signupTab').addEventListener('click', () => { if (!authBusy) setAuthMode('signup'); });
-openAuth.addEventListener('click', () => {
+function showAuth(mode) {
   authMessage.textContent = '';
-  setAuthMode('login');
+  setAuthMode(mode);
   authDialog.showModal();
-  document.querySelector('#email').focus();
-});
+  document.querySelector(mode === 'signup' ? '#displayName' : '#email').focus();
+}
+openAuth.addEventListener('click', () => showAuth('login'));
+document.querySelector('#openSignup').addEventListener('click', () => showAuth('signup'));
 document.querySelector('#closeAuth').addEventListener('click', () => authDialog.close());
 authDialog.addEventListener('close', () => { document.querySelector('#password').value = ''; });
 const summary = document.querySelector('#accountSummary');
@@ -255,11 +258,26 @@ const logoutButton = document.querySelector('#signOut');
 let personalValue = '0';
 function renderPersonal(value) {
   if (compareCounters(value, personalValue) >= 0) personalValue = value;
-  summary.textContent = currentUser() ? `Seus cliques: ${personalValue.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}` : 'Você está clicando como visitante.';
+  summary.textContent = currentUser() ? `Seus cliques: ${personalValue.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}` : '';
 }
+const avatars = ['🐱', '🐶', '🦊', '🐼', '🐨', '🐸', '🦁', '🐯', '🐵', '🐰', '🐻', '🐹'];
+const userAvatars = new Map();
 function renderAccount() {
-  const loggedIn = Boolean(currentUser());
-  openAuth.hidden = loggedIn;
+  const user = currentUser();
+  const loggedIn = Boolean(user);
+  document.querySelector('#guestActions').hidden = loggedIn;
+  document.querySelector('#userAccount').hidden = !loggedIn;
+  accountMenu.hidePopover();
+  if (user) {
+    const metadata = user.user_metadata || {};
+    const name = [metadata.display_name, metadata.nickname, metadata.full_name, metadata.name]
+      .find(value => typeof value === 'string' && value.trim());
+    document.querySelector('#userName').textContent = name || 'Minha conta';
+    if (!userAvatars.has(user.id)) {
+      userAvatars.set(user.id, avatars[crypto.getRandomValues(new Uint32Array(1))[0] % avatars.length]);
+    }
+    document.querySelector('#userAvatar').textContent = userAvatars.get(user.id);
+  }
   if (loggedIn && authDialog.open) authDialog.close();
   document.querySelector('#socialLogins').hidden = loggedIn;
   logoutButton.hidden = !loggedIn;
@@ -346,6 +364,7 @@ accountForm.addEventListener('submit', async event => {
   finally { authBusy = false; password.value = ''; buttons.forEach(button => { button.disabled = false; }); }
 });
 logoutButton.addEventListener('click', async () => {
+  accountMenu.hidePopover();
   if (state.queued) { accountMessage.textContent = 'Aguarde o envio dos cliques pendentes antes de sair.'; return; }
   try {
     await signOut(); renderAccount(); accountMessage.textContent = 'Você saiu da conta.';
