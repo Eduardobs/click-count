@@ -1,3 +1,4 @@
+import { applyLanguage, setText, setLiteralText, t, formatCount } from "./i18n.js";
 import { currentUser, accessToken, signIn, signUp, signOut, socialLogin, initializeAuth } from "./auth.js";
 import { RealtimeClient } from "@supabase/realtime-js";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "./config.js";
@@ -37,7 +38,7 @@ const state = {
 function setConnection(status, label) {
   state.connected = status === "online";
   elements.livePill.dataset.state = status;
-  elements.liveLabel.textContent = label;
+  setText(elements.liveLabel, label);
   elements.button.disabled = !state.connected || !state.authReady;
 }
 
@@ -49,24 +50,22 @@ function renderCounter(rawValue) {
     return;
   }
 
-  const formatted = value.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  const formatted = formatCount(value);
   elements.counter.value = formatted;
   elements.counter.textContent = formatted;
   elements.counter.dataset.size = value.length > 24
     ? "very-long"
     : value.length > 10 ? "long" : "normal";
-  elements.counter.setAttribute("aria-label", `${value} clicks`);
+  elements.counter.setAttribute("aria-label", t("clicks", { count: formatCount(value) }));
   state.renderedValue = value;
 }
 
 function renderPending() {
-  elements.pending.textContent = state.queued === 0
-    ? ""
-    : `${state.queued} ${state.queued === 1 ? "click queued" : "clicks queued"}`;
+  setText(elements.pending, state.queued === 0 ? "" : state.queued === 1 ? "queuedOne" : "queuedMany", { count: formatCount(state.queued) });
 }
 
 function showError(message) {
-  elements.message.textContent = message;
+  setText(elements.message, message);
   setConnection("error", "no connection");
 }
 
@@ -138,10 +137,10 @@ if (!configured) {
       }
       if (click.userId === currentUser()?.id && result.user_clicks) renderPersonal(result.user_clicks);
       renderPending();
-      if (state.retryTimer === null) elements.message.textContent = "";
+      if (state.retryTimer === null) setText(elements.message, "");
     } catch (error) {
       console.error("Could not register click:", error);
-      elements.message.textContent = "Your click is queued. Trying again…";
+      setText(elements.message, "Your click is queued. Trying again…");
       clearTimeout(state.retryTimer);
       state.retryTimer = window.setTimeout(
         () => {
@@ -191,26 +190,26 @@ if (!configured) {
     .subscribe((status) => {
       if (status === "SUBSCRIBED") {
         setConnection("online", "live");
-        elements.message.textContent = "";
+        setText(elements.message, "");
         processQueue();
       } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
         setConnection("offline", "reconnecting");
-        elements.message.textContent = "Reconnecting to the counter…";
+        setText(elements.message, "Reconnecting to the counter…");
       } else if (status === "CLOSED") {
         setConnection("offline", "offline");
       }
     });
 
   window.addEventListener("online", () => {
-    elements.message.textContent = "Connection restored. Syncing…";
+    setText(elements.message, "Connection restored. Syncing…");
     loadCounter().then(processQueue).catch(() => {
-      elements.message.textContent = "Still unable to sync.";
+      setText(elements.message, "Still unable to sync.");
     });
   });
 
   window.addEventListener("offline", () => {
     setConnection("offline", "offline");
-    elements.message.textContent = "No internet. Your clicks will stay queued in this tab.";
+    setText(elements.message, "No internet. Your clicks will stay queued in this tab.");
   });
 
   loadCounter().catch((error) => {
@@ -231,20 +230,20 @@ let authBusy = false;
 function setAuthMode(mode) {
   authMode = mode;
   const signup = mode === 'signup';
-  document.querySelector('#authTitle').textContent = signup ? 'Criar sua conta' : 'Entrar na sua conta';
+  setText(document.querySelector('#authTitle'), signup ? 'Criar sua conta' : 'Entrar na sua conta');
   document.querySelector('#displayNameField').hidden = !signup;
   document.querySelector('#displayName').required = signup;
   document.querySelector('#signupHint').hidden = !signup;
   document.querySelector('#password').autocomplete = signup ? 'new-password' : 'current-password';
   document.querySelector('#password').minLength = signup ? 12 : 1;
-  document.querySelector('#authSubmitLabel').textContent = signup ? 'Criar conta' : 'Entrar';
+  setText(document.querySelector('#authSubmitLabel'), signup ? 'Criar conta' : 'Entrar');
   document.querySelector('#loginTab').setAttribute('aria-pressed', String(!signup));
   document.querySelector('#signupTab').setAttribute('aria-pressed', String(signup));
 }
 document.querySelector('#loginTab').addEventListener('click', () => { if (!authBusy) setAuthMode('login'); });
 document.querySelector('#signupTab').addEventListener('click', () => { if (!authBusy) setAuthMode('signup'); });
 function showAuth(mode) {
-  authMessage.textContent = '';
+  setText(authMessage, '');
   setAuthMode(mode);
   authDialog.showModal();
   document.querySelector(mode === 'signup' ? '#displayName' : '#email').focus();
@@ -258,7 +257,7 @@ const logoutButton = document.querySelector('#signOut');
 let personalValue = '0';
 function renderPersonal(value) {
   if (compareCounters(value, personalValue) >= 0) personalValue = value;
-  summary.textContent = currentUser() ? `Seus cliques: ${personalValue.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}` : '';
+  setText(summary, currentUser() ? 'personal' : '', { count: formatCount(personalValue) });
 }
 const avatars = ['🐱', '🐶', '🦊', '🐼', '🐨', '🐸', '🦁', '🐯', '🐵', '🐰', '🐻', '🐹'];
 const userAvatars = new Map();
@@ -272,7 +271,8 @@ function renderAccount() {
     const metadata = user.user_metadata || {};
     const name = [metadata.display_name, metadata.nickname, metadata.full_name, metadata.name]
       .find(value => typeof value === 'string' && value.trim());
-    document.querySelector('#userName').textContent = name || 'Minha conta';
+    if (name) setLiteralText(document.querySelector('#userName'), name);
+    else setText(document.querySelector('#userName'), 'Minha conta');
     if (!userAvatars.has(user.id)) {
       userAvatars.set(user.id, avatars[crypto.getRandomValues(new Uint32Array(1))[0] % avatars.length]);
     }
@@ -303,7 +303,7 @@ async function loadRanking() {
   const button = document.querySelector('#refreshRanking');
   button.disabled = true;
   button.setAttribute('aria-busy', 'true');
-  document.querySelector('#refreshRankingLabel').textContent = 'Atualizando…';
+  setText(document.querySelector('#refreshRankingLabel'), 'Atualizando…');
   try {
     const rows = await rpc('click_leaderboard');
     const list = document.querySelector('#leaderboard');
@@ -315,21 +315,22 @@ async function loadRanking() {
       const name = document.createElement('span');
       name.textContent = row.display_name;
       const total = document.createElement('strong');
-      total.textContent = normalizeCounter(row.clicks).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      total.dataset.count = normalizeCounter(row.clicks);
+      total.textContent = formatCount(total.dataset.count);
       entry.append(name, total); item.append(entry); list.append(item);
     }
-    message.textContent = rows.length ? '' : 'Seja o primeiro a participar!';
+    setText(message, rows.length ? '' : 'Seja o primeiro a participar!');
     const user = currentUser();
     if (user) {
       const value = await rpc('my_clicks', await accessToken(user.id));
       if (currentUser()?.id === user.id) renderPersonal(value);
     }
-  } catch { message.textContent = 'Ranking indisponível. Tente atualizar em instantes.'; }
+  } catch { setText(message, 'Ranking indisponível. Tente atualizar em instantes.'); }
   finally {
     rankingLoading = false;
     button.disabled = false;
     button.removeAttribute('aria-busy');
-    document.querySelector('#refreshRankingLabel').textContent = 'Atualizar ranking';
+    setText(document.querySelector('#refreshRankingLabel'), 'Atualizar ranking');
     if (rankingRefreshPending) {
       rankingRefreshPending = false;
       void loadRanking();
@@ -338,12 +339,12 @@ async function loadRanking() {
 }
 accountForm.addEventListener('submit', async event => {
   event.preventDefault();
-  if (state.queued && authMode === 'signup') { authMessage.textContent = 'Aguarde o envio dos cliques pendentes antes de criar outra conta.'; return; }
+  if (state.queued && authMode === 'signup') { setText(authMessage, 'Aguarde o envio dos cliques pendentes antes de criar outra conta.'); return; }
   if (authBusy) return;
   authBusy = true;
   const buttons = authDialog.querySelectorAll('button:not(#closeAuth)');
   buttons.forEach(button => { button.disabled = true; });
-  authMessage.textContent = '';
+  setText(authMessage, '');
   const password = document.querySelector('#password');
   try {
     const email = document.querySelector('#email').value.trim();
@@ -352,37 +353,81 @@ accountForm.addEventListener('submit', async event => {
       if (!name) throw new Error('Escolha um apelido público para criar a conta.');
       await signUp(email, password.value, name);
       if (currentUser()) {
-        accountMessage.textContent = 'Conta criada! Você já está conectado e pode contabilizar seus cliques.';
+        setText(accountMessage, 'Conta criada! Você já está conectado e pode contabilizar seus cliques.');
       } else {
         setAuthMode('login');
-        authMessage.textContent = 'Conta criada. Este servidor exige confirmação de e-mail: confirme o cadastro para entrar.';
+        setText(authMessage, 'Conta criada. Este servidor exige confirmação de e-mail: confirme o cadastro para entrar.');
       }
-    } else { await signIn(email, password.value); accountMessage.textContent = 'Você entrou na sua conta.'; }
+    } else { await signIn(email, password.value); setText(accountMessage, 'Você entrou na sua conta.'); }
     renderAccount();
     void loadRanking();
-  } catch (error) { authMessage.textContent = error.message; }
+  } catch (error) { setText(authMessage, error.message); }
   finally { authBusy = false; password.value = ''; buttons.forEach(button => { button.disabled = false; }); }
 });
 logoutButton.addEventListener('click', async () => {
   accountMenu.hidePopover();
-  if (state.queued) { accountMessage.textContent = 'Aguarde o envio dos cliques pendentes antes de sair.'; return; }
+  if (state.queued) { setText(accountMessage, 'Aguarde o envio dos cliques pendentes antes de sair.'); return; }
   try {
-    await signOut(); renderAccount(); accountMessage.textContent = 'Você saiu da conta.';
-  } catch (error) { accountMessage.textContent = error.message; }
+    await signOut(); renderAccount(); setText(accountMessage, 'Você saiu da conta.');
+  } catch (error) { setText(accountMessage, error.message); }
 });
 for (const button of document.querySelectorAll('[data-provider]')) {
   button.addEventListener('click', async () => {
-    if (state.queued) { authMessage.textContent = 'Aguarde o envio dos cliques pendentes antes de entrar.'; return; }
+    if (state.queued) { setText(authMessage, 'Aguarde o envio dos cliques pendentes antes de entrar.'); return; }
     try { await socialLogin(button.dataset.provider); }
-    catch (error) { authMessage.textContent = error.message; }
+    catch (error) { setText(authMessage, error.message); }
   });
 }
 document.querySelector('#refreshRanking').addEventListener('click', () => { void loadRanking(); });
 setAuthMode('login');
-initializeAuth().catch(() => { accountMessage.textContent = 'Não foi possível restaurar o login. Entre novamente.'; }).finally(() => {
+initializeAuth().catch(() => { setText(accountMessage, 'Não foi possível restaurar o login. Entre novamente.'); }).finally(() => {
   state.authReady = true;
   elements.button.disabled = !state.connected;
   renderAccount();
   void loadRanking();
   window.setInterval(() => { void loadRanking(); }, 20000);
 });
+
+function changeLanguage(language) {
+  applyLanguage(language);
+  const selected = document.documentElement.lang;
+  document.querySelector('#languageCode').textContent = selected === 'pt-BR' ? 'PT' : selected.toUpperCase();
+  document.querySelectorAll('[data-language]').forEach(button => {
+    button.setAttribute('aria-pressed', String(button.dataset.language === selected));
+  });
+  if (state.renderedValue !== null) {
+    const value = state.renderedValue;
+    state.renderedValue = null;
+    renderCounter(value);
+  }
+  renderPending();
+  renderPersonal(personalValue);
+  document.querySelectorAll('[data-count]').forEach(element => {
+    element.textContent = formatCount(element.dataset.count);
+  });
+}
+const languagePicker = document.querySelector('#languagePicker');
+const languageTrigger = languagePicker.querySelector('summary');
+for (const button of languagePicker.querySelectorAll('[data-language]')) {
+  button.addEventListener('click', () => {
+    changeLanguage(button.dataset.language);
+    languagePicker.open = false;
+    languageTrigger.focus();
+    try { localStorage.setItem('one-more-language', button.dataset.language); } catch { /* Storage may be unavailable. */ }
+  });
+}
+document.addEventListener('click', event => {
+  if (!languagePicker.contains(event.target)) languagePicker.open = false;
+});
+languagePicker.addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    languagePicker.open = false;
+    languageTrigger.focus();
+  }
+});
+languagePicker.addEventListener('focusout', event => {
+  if (!languagePicker.contains(event.relatedTarget)) languagePicker.open = false;
+});
+let savedLanguage = 'en';
+try { savedLanguage = localStorage.getItem('one-more-language') || 'en'; } catch { /* Default to English. */ }
+changeLanguage(savedLanguage);
