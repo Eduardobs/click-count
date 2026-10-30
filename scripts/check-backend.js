@@ -14,6 +14,7 @@ async function check(label, run) {
 await check('CORS dos cliques autenticados', async () => {
   const response = await fetch(`${SUPABASE_URL}/functions/v1/increment-counter`, {
     method: 'OPTIONS',
+    signal: AbortSignal.timeout(10000),
     headers: {
       Origin: origin,
       'Access-Control-Request-Method': 'POST',
@@ -35,6 +36,7 @@ await check('Ranking público', async () => {
   // This RPC only reads the leaderboard; no clicks or user data are modified.
   const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/click_leaderboard`, {
     method: 'POST',
+    signal: AbortSignal.timeout(10000),
     headers: { apikey: SUPABASE_PUBLISHABLE_KEY, 'Content-Type': 'application/json' },
     body: '{}',
   });
@@ -43,5 +45,24 @@ await check('Ranking público', async () => {
   }
   const rows = await response.json();
   if (!Array.isArray(rows)) throw new Error('resposta inválida');
+});
+await check('Total distribuído', async () => {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/counter_total`, {
+    method: 'POST', signal: AbortSignal.timeout(10000),
+    headers: { apikey: SUPABASE_PUBLISHABLE_KEY, 'Content-Type': 'application/json' }, body: '{}',
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}; aplique a migração de escalabilidade`);
+  const value = await response.json();
+  if (typeof value !== 'string' || !/^(0|[1-9]\d*)$/.test(value)) throw new Error('total inválido');
+});
+await check('Versão do preflight para lotes', async () => {
+  // Invalid input must not mutate anything on the current backend. Use OPTIONS
+  // to identify the new version without sending a legacy-compatible POST.
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/increment-counter`, {
+    method: 'OPTIONS', signal: AbortSignal.timeout(10000), headers: { Origin: origin },
+  });
+  if (!response.ok || !response.headers.get('access-control-expose-headers')?.toLowerCase().includes('retry-after')) {
+    throw new Error('publique a função com suporte a lotes idempotentes');
+  }
 });
 process.exitCode = failed ? 1 : 0;

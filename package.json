@@ -11,10 +11,10 @@
     "check:backend": "node scripts/check-backend.js"
   },
   "dependencies": {
-    "@supabase/realtime-js": "2.117.1",
     "@supabase/supabase-js": "^2.118.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.3.14",
     "esbuild": "0.28.2"
   }
 }

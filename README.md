@@ -119,3 +119,86 @@ incrementing the counter. Run it after backend deployments. A passing local test
 or frontend build does not verify the function deployed in Supabase. If the migration
 was already applied but the RPC is missing from the API schema cache, execute
 `NOTIFY pgrst, 'reload schema';` in SQL Editor and retry the backend check.
+
+## Concurrent clicks and integrity (2026-10-30)
+
+The browser batches up to 50 pending clicks from the same identity, sends one
+request at a time, and keeps the same random UUID and amount on every retry.
+The queue holds at most 1,000 clicks and pauses the button when full. Retries use
+exponential backoff with jitter and respect `Retry-After`. Pending clicks still
+live only in the current page: closing/reloading the page loses unsent clicks.
+
+The Edge Function accepts at most 1 KiB of JSON, validates UUIDs and batch sizes,
+checks supplied sessions with Auth, and bounds upstream request times. It never
+trusts a client-provided user ID. Server credentials stay on the server.
+
+The new migration freezes the existing total as a baseline and spreads new
+increments across 64 private rows. Each batch updates its receipt, the participant's
+ranking count, and exactly one counter shard in the same transaction. Concurrent
+requests from the same participant still serialize on that participant's profile;
+other participants no longer all wait on the global counter row. The existing
+ranking index supports the top-20 query. Global and personal counts use exact
+PostgreSQL numeric arithmetic and travel as strings, without JavaScript precision loss.
+
+A unique receipt prevents duplicate increments, including after a committed
+transaction whose HTTP response was lost. Reusing an ID with another identity or
+amount is rejected. Receipts are retained permanently; **do not delete receipts**
+without first implementing an expiry protocol that also rejects expired requests.
+Monitor their storage/index growth. They contain only UUIDs, user IDs and amounts.
+
+Reads sum the 64 shards and the baseline in one database snapshot. Mutation
+responses may be overtaken by concurrent commits; the UI never decreases a shown
+total and converges on its next read. The authoritative data remains transactional;
+separate counter/ranking HTTP reads are not a single shared snapshot.
+
+The old per-click Postgres Changes subscription is replaced by one total read per
+visible tab every 2–3 seconds, independent of the global write rate. Ranking reads
+run every 20–25 seconds, with manual refresh limited to once per five seconds.
+Both stop in hidden tabs, avoid overlapping requests, and have request timeouts.
+This avoids the per-subscriber checks for every mutation described in
+[Supabase's scaling documentation](https://supabase.com/docs/guides/realtime/postgres-changes#database-instance-and-realtime-performance).
+Read load still grows with active clients; very large audiences may require a
+shared cached snapshot or scheduled Broadcast layer, sized against measured traffic.
+
+### Deploy this protocol change
+
+This is a coordinated backend/frontend upgrade. Old pages send `{}` and are not
+compatible with the new endpoint; arrange a maintenance window and ask users to
+finish pending clicks and reload after publication. Never let old and new mutation
+functions write to different totals.
+
+1. Apply all pending migrations, including
+   `supabase/migrations/20261030000000_scalable_counter.sql`, with `supabase db push`.
+   It preserves the existing total/ranking and removes the old mutation signature.
+2. Deploy `supabase functions deploy increment-counter`.
+3. Run `npm run check`, publish the regenerated `app.bundle.js`, and reload clients.
+4. Run `npm run check:backend` to verify the public total, ranking and preflight.
+   This is read-only and does not prove mutation correctness or available capacity.
+
+The original `counters` table is now a frozen legacy value; use `counter_total()`
+for current totals. Do not roll back just the frontend/function after migration:
+that would strand clients on the legacy protocol. No hosted deployment is performed
+by the local build or tests.
+
+### Validation and capacity
+
+`npm test` includes the actual SQL migrations in PGlite (embedded PostgreSQL),
+permission checks for public roles, exact large totals, replays, conflicting
+identities/amounts, and rollback of profile/receipt/total on a simulated failure.
+It also verifies queue limits, identity separation, request validation and retries.
+PGlite serializes queries, so these are **not multi-connection load tests**.
+
+Before claiming a concurrent-client capacity, use an isolated Supabase staging
+project with the deployed migrations and function. Send batches with distinct
+UUIDs from many clients, concurrently replay some identical UUIDs, and verify that
+the total grows by the sum of unique accepted batches and each profile by its own
+unique signed-in batches. Include lost responses, lock timeouts, Auth outages and
+account deletion; sample the ranking during writes. Measure p95/p99 latency,
+503/429 rates, database CPU/locks, Auth throughput and receipt growth against the
+intended traffic and hardware. No numerical capacity is asserted by this change.
+
+Public anonymous clicking remains intentionally available. CORS and batch limits
+are not bot protection or a server-side rate quota; callers can create new UUIDs.
+For adversarial traffic, configure ingress rate limits/bot challenges before a
+public launch at scale. This requires a product-specific quota and infrastructure;
+client queue bounds alone cannot protect the service from distributed abuse.

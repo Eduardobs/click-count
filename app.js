@@ -1,6 +1,6 @@
 import { applyLanguage, setText, setLiteralText, t, formatCount } from "./i18n.js";
 import { currentUser, accessToken, signIn, signUp, signOut, socialLogin, initializeAuth } from "./auth.js";
-import { RealtimeClient } from "@supabase/realtime-js";
+import { ClickQueue, retryDelay } from "./click-queue.js";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "./config.js";
 import { compareCounters, normalizeCounter } from "./counter-utils.js";
 
@@ -11,8 +11,7 @@ if (window.top !== window.self) {
   throw new Error("This page cannot be embedded in a frame.");
 }
 
-const DEFAULT_RETRY_DELAY_MS = 2500;
-const MAX_CONCURRENT_REQUESTS = 3;
+const clickQueue = new ClickQueue();
 
 const elements = {
   button: document.querySelector("#clickButton"),
@@ -25,26 +24,26 @@ const elements = {
 
 const state = {
   queued: 0,
-  clicks: [],
+  attempts: 0,
+  queueTimer: null,
   inFlight: 0,
   connected: false,
   authReady: false,
   retryTimer: null,
   pressTimer: null,
   renderedValue: null,
-  clicksSinceRankingRefresh: 0,
 };
 
 function setConnection(status, label) {
   state.connected = status === "online";
   elements.livePill.dataset.state = status;
   setText(elements.liveLabel, label);
-  elements.button.disabled = !state.connected || !state.authReady;
+  elements.button.disabled = !state.connected || !state.authReady || clickQueue.size >= clickQueue.limit;
 }
 
 function renderCounter(rawValue) {
   const value = normalizeCounter(rawValue);
-  // Initial reads, mutation responses, and Realtime updates race each other.
+  // Periodic reads and mutation responses race each other.
   // Never let an older response visually roll the counter back.
   if (state.renderedValue !== null && compareCounters(value, state.renderedValue) <= 0) {
     return;
@@ -61,6 +60,8 @@ function renderCounter(rawValue) {
 }
 
 function renderPending() {
+  state.queued = clickQueue.size;
+  elements.button.disabled = !state.connected || !state.authReady || clickQueue.size >= clickQueue.limit;
   setText(elements.pending, state.queued === 0 ? "" : state.queued === 1 ? "queuedOne" : "queuedMany", { count: formatCount(state.queued) });
 }
 
@@ -76,15 +77,6 @@ const configured =
 if (!configured) {
   showError("Configure Supabase in config.js to publish the counter.");
 } else {
-  const realtimeUrl = `${SUPABASE_URL.replace("https://", "wss://")}/realtime/v1`;
-  const realtime = new RealtimeClient(realtimeUrl, {
-    accessToken: async () => SUPABASE_PUBLISHABLE_KEY,
-    params: {
-      apikey: SUPABASE_PUBLISHABLE_KEY,
-      eventsPerSecond: 10,
-    },
-  });
-
   async function incrementCounter(click) {
     const token = await accessToken(click.userId);
     const response = await fetch(`${SUPABASE_URL}/functions/v1/increment-counter`, {
@@ -94,14 +86,15 @@ if (!configured) {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: "{}",
+      body: JSON.stringify({ request_id: click.request_id, amount: click.amount }),
+      signal: AbortSignal.timeout(15000),
     });
 
     const payload = await response.json().catch(() => null);
     if (!response.ok) {
       const error = new Error(payload?.error || `Increment failed (${response.status}).`);
       const retryAfter = Number(response.headers.get("Retry-After"));
-      if (response.status === 429 && Number.isFinite(retryAfter)) {
+      if (Number.isFinite(retryAfter) && retryAfter > 0) {
         error.retryAfterMs = Math.max(1, retryAfter) * 1000;
       }
       throw error;
@@ -112,29 +105,23 @@ if (!configured) {
 
   async function loadCounter() {
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/counters?id=eq.main&select=value&limit=1`,
-      { headers: { apikey: SUPABASE_PUBLISHABLE_KEY } },
+      `${SUPABASE_URL}/rest/v1/rpc/counter_total`,
+      { method: "POST", headers: { apikey: SUPABASE_PUBLISHABLE_KEY, "Content-Type": "application/json" }, body: "{}", signal: AbortSignal.timeout(10000) },
     );
     const rows = await response.json().catch(() => null);
-    if (!response.ok || !Array.isArray(rows) || rows.length !== 1) {
+    if (!response.ok || typeof rows !== "string") {
       throw new Error(`Counter read failed (${response.status}).`);
     }
-    renderCounter(rows[0].value);
+    renderCounter(rows);
   }
 
   async function sendQueuedClick(click) {
-    click.sending = true;
     state.inFlight += 1;
     try {
       const result = await incrementCounter(click);
       renderCounter(result.new_value);
-      state.clicks.splice(state.clicks.indexOf(click), 1);
-      state.queued -= 1;
-      state.clicksSinceRankingRefresh += 1;
-      if (state.clicksSinceRankingRefresh >= 10) {
-        state.clicksSinceRankingRefresh = 0;
-        void loadRanking();
-      }
+      clickQueue.acknowledge(click);
+      state.attempts = 0;
       if (click.userId === currentUser()?.id && result.user_clicks) renderPersonal(result.user_clicks);
       renderPending();
       if (state.retryTimer === null) setText(elements.message, "");
@@ -147,30 +134,28 @@ if (!configured) {
           state.retryTimer = null;
           processQueue();
         },
-        error.retryAfterMs || DEFAULT_RETRY_DELAY_MS,
+        retryDelay(state.attempts++, error.retryAfterMs),
       );
     } finally {
-      click.sending = false;
       state.inFlight -= 1;
       processQueue();
     }
   }
 
   function processQueue() {
-    if (!state.connected || state.retryTimer !== null) return;
-
-    const waiting = state.queued - state.inFlight;
-    const availableSlots = MAX_CONCURRENT_REQUESTS - state.inFlight;
-    const requestsToStart = Math.min(waiting, availableSlots);
-    for (let index = 0; index < requestsToStart; index += 1) {
-      const click = state.clicks.find(item => !item.sending);
-      if (click) void sendQueuedClick(click);
-    }
+    if (!state.connected || state.retryTimer !== null || state.inFlight || state.queueTimer !== null) return;
+    if (!clickQueue.size) return;
+    // Coalesce rapid clicks, bounding requests to one in flight per tab.
+    state.queueTimer = window.setTimeout(() => {
+      state.queueTimer = null;
+      if (!state.connected || state.retryTimer !== null) return;
+      const batch = clickQueue.next();
+      if (batch) void sendQueuedClick(batch);
+    }, 100);
   }
 
   elements.button.addEventListener("click", () => {
-    state.clicks.push({ userId: currentUser()?.id || null, sending: false });
-    state.queued += 1;
+    if (!state.authReady || !state.connected || !clickQueue.push(currentUser()?.id || null)) return;
     renderPending();
     elements.button.classList.add("is-pressed");
     clearTimeout(state.pressTimer);
@@ -182,41 +167,41 @@ if (!configured) {
     processQueue();
   });
 
-  const channel = realtime
-    .channel("public-counter")
-    .on("postgres_changes", {
-      event: "UPDATE", schema: "public", table: "counters", filter: "id=eq.main",
-    }, (payload) => renderCounter(payload.new.value))
-    .subscribe((status) => {
-      if (status === "SUBSCRIBED") {
-        setConnection("online", "live");
-        setText(elements.message, "");
-        processQueue();
-      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-        setConnection("offline", "reconnecting");
-        setText(elements.message, "Reconnecting to the counter…");
-      } else if (status === "CLOSED") {
-        setConnection("offline", "offline");
-      }
-    });
-
-  window.addEventListener("online", () => {
-    setText(elements.message, "Connection restored. Syncing…");
-    loadCounter().then(processQueue).catch(() => {
-      setText(elements.message, "Still unable to sync.");
-    });
-  });
-
+  let pollTimer = null;
+  let polling = false;
+  let pollFailures = 0;
+  async function syncCounter() {
+    clearTimeout(pollTimer);
+    if (polling || document.hidden || !navigator.onLine) return;
+    polling = true;
+    try {
+      await loadCounter();
+      pollFailures = 0;
+      setConnection("online", "live");
+      if (!state.queued) setText(elements.message, "");
+      processQueue();
+    } catch {
+      pollFailures++;
+      setConnection("offline", "reconnecting");
+      setText(elements.message, "Reconnecting to the counter…");
+    } finally {
+      polling = false;
+      // Bounded read frequency independent of the global click rate, with jitter
+      // to avoid synchronized waves. Hidden tabs stop polling entirely.
+      if (!document.hidden) pollTimer = window.setTimeout(syncCounter,
+        pollFailures ? retryDelay(pollFailures) : 2000 + Math.random() * 1000);
+    }
+  }
+  window.addEventListener("online", () => { void syncCounter(); });
   window.addEventListener("offline", () => {
     setConnection("offline", "offline");
     setText(elements.message, "No internet. Your clicks will stay queued in this tab.");
   });
-
-  loadCounter().catch((error) => {
-    console.error("Could not load the counter:", error);
-    showError("Could not access the counter. Check the configuration.");
-    realtime.removeChannel(channel);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) clearTimeout(pollTimer);
+    else void syncCounter();
   });
+  void syncCounter();
 }
 
 const accountForm = document.querySelector('#accountForm');
@@ -303,19 +288,17 @@ function renderAccount() {
 }
 async function rpc(name, token) {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
-    method: 'POST', headers: { apikey: SUPABASE_PUBLISHABLE_KEY, 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: '{}',
+    method: 'POST', signal: AbortSignal.timeout(10000), headers: { apikey: SUPABASE_PUBLISHABLE_KEY, 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: '{}',
   });
   if (!response.ok) throw new Error('Não foi possível carregar os dados.');
   return response.json();
 }
 let rankingLoading = false;
-let rankingRefreshPending = false;
+let lastRankingRefresh = 0;
 async function loadRanking() {
-  if (rankingLoading) {
-    rankingRefreshPending = true;
-    return;
-  }
+  if (rankingLoading || document.hidden || !navigator.onLine || Date.now() - lastRankingRefresh < 5000) return;
   rankingLoading = true;
+  lastRankingRefresh = Date.now();
   const message = document.querySelector('#rankingMessage');
   const button = document.querySelector('#refreshRanking');
   button.disabled = true;
@@ -348,10 +331,6 @@ async function loadRanking() {
     button.disabled = false;
     button.removeAttribute('aria-busy');
     setText(document.querySelector('#refreshRankingLabel'), 'Atualizar ranking');
-    if (rankingRefreshPending) {
-      rankingRefreshPending = false;
-      void loadRanking();
-    }
   }
 }
 accountForm.addEventListener('submit', async event => {
@@ -399,10 +378,15 @@ document.querySelector('#refreshRanking').addEventListener('click', () => { void
 setAuthMode('login');
 initializeAuth().catch(() => { setText(accountMessage, 'Não foi possível restaurar o login. Entre novamente.'); }).finally(() => {
   state.authReady = true;
-  elements.button.disabled = !state.connected;
+  elements.button.disabled = !state.connected || clickQueue.size >= clickQueue.limit;
   renderAccount();
   void loadRanking();
-  window.setInterval(() => { void loadRanking(); }, 20000);
+  const scheduleRanking = () => window.setTimeout(async () => {
+    await loadRanking();
+    scheduleRanking();
+  }, 20000 + Math.random() * 5000);
+  scheduleRanking();
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) void loadRanking(); });
 });
 
 function changeLanguage(language) {

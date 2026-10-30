@@ -30,6 +30,8 @@ function corsHeaders(origin: string | null): HeadersInit {
   const headers: Record<string, string> = {
     "Access-Control-Allow-Headers": "apikey, content-type, authorization",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Expose-Headers": "Retry-After",
+    "Access-Control-Max-Age": "600",
     "Cache-Control": "no-store",
     "Content-Type": "application/json; charset=utf-8",
     "Vary": "Origin",
@@ -71,6 +73,37 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: "origin_not_allowed" }, 403, origin);
   }
 
+  // Read a bounded stream: Content-Length alone is not trustworthy.
+  let input;
+  try {
+    const reader = request.body?.getReader();
+    let size = 0;
+    const chunks: Uint8Array[] = [];
+    if (reader) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+        if (size > 1024) {
+          await reader.cancel();
+          return jsonResponse({ error: "request_too_large" }, 413, origin);
+        }
+        chunks.push(value);
+      }
+    }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
+    input = JSON.parse(new TextDecoder().decode(bytes));
+    if (!input || typeof input.request_id !== "string" ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.request_id) ||
+        !Number.isInteger(input.amount) || input.amount < 1 || input.amount > 50) {
+      return jsonResponse({ error: "invalid_request" }, 400, origin);
+    }
+  } catch {
+    return jsonResponse({ error: "invalid_request" }, 400, origin);
+  }
+
   const serviceKey = secretKey();
   if (!PROJECT_URL || !serviceKey) {
     console.error("Missing Supabase server configuration.");
@@ -91,8 +124,14 @@ Deno.serve(async (request) => {
     if (authorization) {
       const userResponse = await fetch(`${PROJECT_URL}/auth/v1/user`, {
         headers: { apikey: serviceKey, Authorization: authorization },
+        signal: AbortSignal.timeout(5000),
       });
-      if (!userResponse.ok) return jsonResponse({ error: "invalid_session" }, 401, origin);
+      if (!userResponse.ok) {
+        if (userResponse.status === 401 || userResponse.status === 403) {
+          return jsonResponse({ error: "invalid_session" }, 401, origin);
+        }
+        return jsonResponse({ error: "auth_unavailable" }, 503, origin, { "Retry-After": "3" });
+      }
       const user = await userResponse.json();
       if (typeof user.id !== "string") return jsonResponse({ error: "invalid_session" }, 401, origin);
       userId = user.id;
@@ -101,13 +140,15 @@ Deno.serve(async (request) => {
     const rpcResponse = await fetch(`${PROJECT_URL}/rest/v1/rpc/increment_counter_backend`, {
       method: "POST",
       headers: rpcHeaders,
-      body: JSON.stringify({ click_user_id: userId }),
+      body: JSON.stringify({ request_id: input.request_id, click_amount: input.amount, click_user_id: userId }),
+      signal: AbortSignal.timeout(8000),
     });
     const rpcBody = await rpcResponse.json().catch(() => null);
 
     if (!rpcResponse.ok) {
+      if (rpcBody?.code === "22023") return jsonResponse({ error: "request_conflict" }, 409, origin);
       console.error("Counter RPC failed:", rpcResponse.status, rpcBody?.code);
-      return jsonResponse({ error: "counter_unavailable" }, 503, origin);
+      return jsonResponse({ error: "counter_unavailable" }, 503, origin, { "Retry-After": "3" });
     }
 
     const result = Array.isArray(rpcBody) ? rpcBody[0] : rpcBody;
@@ -123,6 +164,6 @@ Deno.serve(async (request) => {
     );
   } catch (error) {
     console.error("Unexpected increment error:", error instanceof Error ? error.message : error);
-    return jsonResponse({ error: "counter_unavailable" }, 503, origin);
+    return jsonResponse({ error: "counter_unavailable" }, 503, origin, { "Retry-After": "3" });
   }
 });
