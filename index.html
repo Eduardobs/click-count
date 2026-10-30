@@ -9,6 +9,7 @@
     <title data-i18n="One More — shared counter">One More — shared counter</title>
     <link rel="preconnect" href="https://kmbtkszxonrkozgotqrf.supabase.co" crossorigin />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <script src="./theme.js"></script>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -35,6 +36,10 @@
           </div>
           <p id="authMessage" role="status"></p>
         </div>
+        <button id="themeToggle" class="theme-toggle" type="button" aria-pressed="false" data-i18n-aria="Dark theme" aria-label="Dark theme">
+          <svg class="theme-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.9 13a9 9 0 0 1-9.9-9.9A9 9 0 1 0 20.9 13Z"/></svg>
+          <svg class="theme-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg>
+        </button>
         <details class="language-picker" id="languagePicker">
           <summary class="language-trigger" data-i18n-aria="language" aria-label="Language">
             <svg class="language-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h12M9 3v2M5 5c1 5 4 8 8 10M13 5c-1 5-4 8-9 11M13 21l4-10 4 10M14.2 18h5.6"/></svg>

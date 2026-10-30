@@ -1,5 +1,6 @@
 export const translations = {
   "en": {
+    "Dark theme": "Dark theme",
     "Every click counts.": "Every click counts.",
     "One shared counter. One more together.": "One shared counter. One more together.",
     "total clicks": "total clicks",
@@ -69,6 +70,7 @@ export const translations = {
     "unexpected": "Something went wrong. Please try again."
   },
   "pt-BR": {
+    "Dark theme": "Tema escuro",
     "Every click counts.": "Cada clique conta.",
     "One shared counter. One more together.": "Um contador para todos. Mais um, juntos.",
     "total clicks": "cliques no total",
@@ -138,6 +140,7 @@ export const translations = {
     "unexpected": "Algo deu errado. Tente novamente."
   },
   "es": {
+    "Dark theme": "Tema oscuro",
     "Every click counts.": "Cada clic cuenta.",
     "One shared counter. One more together.": "Un contador para todos. Uno más, juntos.",
     "total clicks": "clics en total",
