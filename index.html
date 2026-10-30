@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#f4f1e8" />
+    <meta name="theme-color" content="#f7f8f5" />
     <meta name="description" content="A public counter shared and updated in real time." />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self' https://kmbtkszxonrkozgotqrf.supabase.co wss://kmbtkszxonrkozgotqrf.supabase.co; style-src 'self'; img-src 'self' data:; font-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests" />
     <title data-i18n="One More — shared counter">One More — shared counter</title>
@@ -55,8 +55,13 @@
             <span class="live-dot" aria-hidden="true"></span>
             <span id="liveLabel" data-i18n="connecting">connecting</span>
           </div>
+          <div class="counter-intro">
+            <h1 data-i18n="Every click counts.">Every click counts.</h1>
+            <p data-i18n="One shared counter. One more together.">One shared counter. One more together.</p>
+          </div>
           <div class="counter-area">
             <output class="counter-value" id="counterValue" aria-live="polite" aria-atomic="true">—</output>
+            <p class="counter-caption" data-i18n="total clicks">total clicks</p>
             <p class="pending" id="pendingLabel" aria-live="polite"></p>
           </div>
 

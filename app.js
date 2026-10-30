@@ -225,6 +225,23 @@ const accountMessage = document.querySelector('#authMessage');
 const authDialog = document.querySelector('#authDialog');
 const openAuth = document.querySelector('#openAuth');
 const accountMenu = document.querySelector('#accountMenu');
+const avatarButton = document.querySelector('#avatarButton');
+
+function positionAccountMenu() {
+  const avatarBounds = avatarButton.getBoundingClientRect();
+  accountMenu.style.top = `${avatarBounds.bottom + 8}px`;
+  accountMenu.style.right = `${Math.max(12, document.documentElement.clientWidth - avatarBounds.right)}px`;
+}
+
+accountMenu.addEventListener('beforetoggle', event => {
+  if (event.newState === 'open') positionAccountMenu();
+});
+function repositionOpenAccountMenu() {
+  if (accountMenu.matches(':popover-open')) positionAccountMenu();
+}
+window.addEventListener('resize', repositionOpenAccountMenu);
+window.addEventListener('scroll', repositionOpenAccountMenu, { passive: true });
+
 let authMode = 'login';
 let authBusy = false;
 function setAuthMode(mode) {

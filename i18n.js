@@ -1,5 +1,8 @@
 export const translations = {
   "en": {
+    "Every click counts.": "Every click counts.",
+    "One shared counter. One more together.": "One shared counter. One more together.",
+    "total clicks": "total clicks",
     "One More — shared counter": "One More — shared counter",
     "A public counter shared and updated in real time.": "A public counter shared and updated in real time.",
     "One More — home page": "One More — home page",
@@ -66,6 +69,9 @@ export const translations = {
     "unexpected": "Something went wrong. Please try again."
   },
   "pt-BR": {
+    "Every click counts.": "Cada clique conta.",
+    "One shared counter. One more together.": "Um contador para todos. Mais um, juntos.",
+    "total clicks": "cliques no total",
     "One More — shared counter": "One More — contador compartilhado",
     "A public counter shared and updated in real time.": "Um contador público compartilhado e atualizado em tempo real.",
     "One More — home page": "One More — página inicial",
@@ -132,6 +138,9 @@ export const translations = {
     "unexpected": "Algo deu errado. Tente novamente."
   },
   "es": {
+    "Every click counts.": "Cada clic cuenta.",
+    "One shared counter. One more together.": "Un contador para todos. Uno más, juntos.",
+    "total clicks": "clics en total",
     "One More — shared counter": "One More — contador compartido",
     "A public counter shared and updated in real time.": "Un contador público compartido y actualizado en tiempo real.",
     "One More — home page": "One More — página de inicio",
